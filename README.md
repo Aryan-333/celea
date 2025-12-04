@@ -1,36 +1,174 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Celea - AI-Native Video Automation for Hollywood
+
+![Celea Logo](public/celea-logo.png)
+
+Celea is an AI-powered video generation platform that automates the video refinement process using GPT-4o, Veo 3.1, and Gemini 2.5 Pro.
+
+## Features
+
+- **Intelligent Prompt Enhancement**: GPT-4o transforms rough prompts into cinema-grade Veo 3.1 prompts
+- **AI Video Generation**: Veo 3.1 generates high-quality videos with reference image support
+- **Quality Analysis**: Gemini 2.5 Pro analyzes videos against user goals
+- **Auto-Refinement**: Automatic refinement loop (up to 5 iterations) until quality passes
+- **Real-time Progress**: SSE-based real-time updates during generation
+- **Project Management**: Organize videos into projects
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **UI**: shadcn/ui + Tailwind CSS
+- **Database**: PostgreSQL via Supabase
+- **ORM**: Prisma
+- **File Storage**: Supabase Storage
+- **Background Jobs**: Inngest
+- **AI Models**: OpenAI GPT-4o, Google Veo 3.1, Gemini 2.5 Pro
+- **State Management**: Zustand
+- **Package Manager**: Bun
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+- [Bun](https://bun.sh/) installed
+- [Supabase](https://supabase.com/) account
+- [OpenAI](https://platform.openai.com/) API key
+- [Google AI](https://ai.google.dev/) API key with Veo 3.1 access
+
+### Installation
+
+1. Clone the repository:
+\`\`\`bash
+git clone https://github.com/YOUR_USERNAME/celea.git
+cd celea
+\`\`\`
+
+2. Install dependencies:
+\`\`\`bash
+bun install
+\`\`\`
+
+3. Set up environment variables:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+4. Update `.env.local` with your credentials:
+\`\`\`env
+# Database (Supabase PostgreSQL)
+DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://[ref].supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
+SUPABASE_SERVICE_ROLE_KEY="eyJ..."
+
+# AI APIs
+OPENAI_API_KEY="sk-..."
+GOOGLE_AI_API_KEY="..."
+
+# Inngest (optional for local dev)
+INNGEST_EVENT_KEY="..."
+INNGEST_SIGNING_KEY="..."
+\`\`\`
+
+5. Set up the database:
+\`\`\`bash
+bunx prisma db push
+\`\`\`
+
+6. Create Supabase storage bucket:
+   - Go to Supabase Dashboard → Storage
+   - Create a bucket named \`celea-media\`
+   - Set it as public
+
+7. Run the development server:
+\`\`\`bash
 bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Vercel (Recommended)
 
-## Learn More
+1. Push your code to GitHub
 
-To learn more about Next.js, take a look at the following resources:
+2. Go to [Vercel](https://vercel.com) and import your repository
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Add environment variables in Vercel dashboard:
+   - \`DATABASE_URL\`
+   - \`DIRECT_URL\`
+   - \`NEXT_PUBLIC_SUPABASE_URL\`
+   - \`NEXT_PUBLIC_SUPABASE_ANON_KEY\`
+   - \`SUPABASE_SERVICE_ROLE_KEY\`
+   - \`OPENAI_API_KEY\`
+   - \`GOOGLE_AI_API_KEY\`
+   - \`INNGEST_EVENT_KEY\`
+   - \`INNGEST_SIGNING_KEY\`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. Deploy!
 
-## Deploy on Vercel
+### Inngest Setup
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Go to [Inngest](https://inngest.com) and create an app
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2. Add the Inngest keys to your Vercel environment variables
+
+3. Inngest will automatically sync with your \`/api/inngest\` endpoint
+
+## Project Structure
+
+\`\`\`
+celea/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── page.tsx            # Landing page
+│   │   ├── projects/           # Projects pages
+│   │   └── api/                # API routes
+│   ├── components/             # UI components
+│   ├── lib/
+│   │   ├── prompts.ts          # Central AI prompts
+│   │   ├── db.ts               # Prisma client
+│   │   ├── supabase/           # Supabase clients
+│   │   └── ai/                 # AI service integrations
+│   ├── inngest/                # Background jobs
+│   └── stores/                 # Zustand stores
+├── prisma/
+│   └── schema.prisma           # Database schema
+└── public/
+    └── celea-logo.png
+\`\`\`
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | \`/api/projects\` | List all projects |
+| POST | \`/api/projects\` | Create new project |
+| GET | \`/api/projects/[id]\` | Get project details |
+| DELETE | \`/api/projects/[id]\` | Delete project |
+| POST | \`/api/upload\` | Upload reference images |
+| POST | \`/api/pipeline\` | Start video generation |
+| GET | \`/api/job-status/[id]\` | Get job status (SSE) |
+| GET | \`/api/video/[id]\` | Stream/download video |
+| POST | \`/api/enhance-prompt\` | Enhance prompt (direct) |
+| POST | \`/api/generate-video\` | Generate video (direct) |
+| POST | \`/api/analyze-video\` | Analyze video (direct) |
+
+## Color Scheme
+
+- **Primary (Coral)**: RGB(238, 133, 125)
+- **Secondary (Lavender)**: RGB(193, 202, 241)
+- **Accent 1 (Cream)**: RGB(248, 214, 134)
+- **Accent 2 (Cyan)**: RGB(124, 199, 212)
+- **Text**: #2d3748
+
+## License
+
+MIT
+
+---
+
+Built with ❤️ by Celea

@@ -26,7 +26,8 @@ export async function analyzeVideo(
   videoUrl: string,
   userGoal: string
 ): Promise<AnalysisResult> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-pro-preview-06-05" });
+  // Using gemini-1.5-pro for video analysis (supports video input)
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-pro" });
 
   // Download video and upload to Gemini
   const videoResponse = await fetch(videoUrl);
@@ -83,7 +84,7 @@ export async function uploadToGemini(
   mimeType: string,
   displayName: string
 ): Promise<{ uri: string; mimeType: string }> {
-  const fileManager = getGenAI().getGenerativeModel({ model: "gemini-2.5-pro-preview-06-05" });
+  const fileManager = getGenAI().getGenerativeModel({ model: "gemini-1.5-pro" });
 
   // For now, use inline data instead of File API
   // The File API requires different setup

@@ -1,26 +1,235 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
+/* Celea Brand Colors */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Celea Brand Colors */
+  --color-coral: rgb(238, 133, 125);
+  --color-lavender: rgb(193, 202, 241);
+  --color-cream: rgb(248, 214, 134);
+  --color-cyan: rgb(124, 199, 212);
+  
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.75rem;
+  
+  /* Celea Light Theme */
+  --background: #fefefe;
+  --foreground: #2d3748;
+  --card: #ffffff;
+  --card-foreground: #2d3748;
+  --popover: #ffffff;
+  --popover-foreground: #2d3748;
+  
+  /* Primary - Coral */
+  --primary: rgb(238, 133, 125);
+  --primary-foreground: #ffffff;
+  
+  /* Secondary - Lavender */
+  --secondary: rgb(193, 202, 241);
+  --secondary-foreground: #2d3748;
+  
+  /* Muted */
+  --muted: #f7f8fc;
+  --muted-foreground: #64748b;
+  
+  /* Accent - Cream */
+  --accent: rgb(248, 214, 134);
+  --accent-foreground: #2d3748;
+  
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: rgb(238, 133, 125);
+  
+  /* Chart colors using brand palette */
+  --chart-1: rgb(238, 133, 125);
+  --chart-2: rgb(193, 202, 241);
+  --chart-3: rgb(248, 214, 134);
+  --chart-4: rgb(124, 199, 212);
+  --chart-5: #94a3b8;
+  
+  /* Sidebar */
+  --sidebar: #fafbfd;
+  --sidebar-foreground: #2d3748;
+  --sidebar-primary: rgb(238, 133, 125);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(193, 202, 241);
+  --sidebar-accent-foreground: #2d3748;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: rgb(238, 133, 125);
+}
+
+.dark {
+  --background: #0f1419;
+  --foreground: #f1f5f9;
+  --card: #1a1f2e;
+  --card-foreground: #f1f5f9;
+  --popover: #1a1f2e;
+  --popover-foreground: #f1f5f9;
+  
+  /* Primary - Coral (slightly adjusted for dark mode) */
+  --primary: rgb(238, 133, 125);
+  --primary-foreground: #0f1419;
+  
+  /* Secondary - Lavender */
+  --secondary: rgba(193, 202, 241, 0.15);
+  --secondary-foreground: rgb(193, 202, 241);
+  
+  /* Muted */
+  --muted: #1e2433;
+  --muted-foreground: #94a3b8;
+  
+  /* Accent - Cyan for dark mode */
+  --accent: rgba(124, 199, 212, 0.15);
+  --accent-foreground: rgb(124, 199, 212);
+  
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: rgb(238, 133, 125);
+  
+  /* Chart colors */
+  --chart-1: rgb(238, 133, 125);
+  --chart-2: rgb(193, 202, 241);
+  --chart-3: rgb(248, 214, 134);
+  --chart-4: rgb(124, 199, 212);
+  --chart-5: #94a3b8;
+  
+  /* Sidebar */
+  --sidebar: #141820;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: rgb(238, 133, 125);
+  --sidebar-primary-foreground: #0f1419;
+  --sidebar-accent: rgba(193, 202, 241, 0.15);
+  --sidebar-accent-foreground: rgb(193, 202, 241);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: rgb(238, 133, 125);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom Utility Classes */
+@layer utilities {
+  .gradient-celea {
+    background: linear-gradient(
+      135deg,
+      rgb(238, 133, 125) 0%,
+      rgb(193, 202, 241) 50%,
+      rgb(124, 199, 212) 100%
+    );
+  }
+  
+  .gradient-celea-warm {
+    background: linear-gradient(
+      135deg,
+      rgb(238, 133, 125) 0%,
+      rgb(248, 214, 134) 100%
+    );
+  }
+  
+  .gradient-celea-cool {
+    background: linear-gradient(
+      135deg,
+      rgb(193, 202, 241) 0%,
+      rgb(124, 199, 212) 100%
+    );
+  }
+  
+  .text-gradient-celea {
+    background: linear-gradient(
+      135deg,
+      rgb(238, 133, 125) 0%,
+      rgb(193, 202, 241) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .dark .glass {
+    background: rgba(26, 31, 46, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(238, 133, 125, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(238, 133, 125, 0.5);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }

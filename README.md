@@ -2,11 +2,11 @@
 
 ![Celea Logo](public/celea-logo.png)
 
-Celea is an AI-powered video generation platform that automates the video refinement process using GPT-4o, Veo 3.1, and Gemini 2.5 Pro.
+Celea is an AI-powered video generation platform that automates the video refinement process using **Gemini 2.5 Pro** and **Veo 3.1** - all powered by Google AI.
 
 ## Features
 
-- **Intelligent Prompt Enhancement**: GPT-4o transforms rough prompts into cinema-grade Veo 3.1 prompts
+- **Intelligent Prompt Enhancement**: Gemini 2.5 Pro transforms rough prompts into cinema-grade Veo 3.1 prompts
 - **AI Video Generation**: Veo 3.1 generates high-quality videos with reference image support
 - **Quality Analysis**: Gemini 2.5 Pro analyzes videos against user goals
 - **Auto-Refinement**: Automatic refinement loop (up to 5 iterations) until quality passes
@@ -21,9 +21,20 @@ Celea is an AI-powered video generation platform that automates the video refine
 - **ORM**: Prisma
 - **File Storage**: Supabase Storage
 - **Background Jobs**: Inngest
-- **AI Models**: OpenAI GPT-4o, Google Veo 3.1, Gemini 2.5 Pro
+- **AI Models**: 
+  - **Gemini 2.5 Pro** (`gemini-2.5-pro`) - Prompt enhancement & video analysis
+  - **Veo 3.1** (`veo-3.1-generate-preview`) - Video generation
 - **State Management**: Zustand
 - **Package Manager**: Bun
+
+## AI Models Used
+
+| Feature | Model | Provider |
+|---------|-------|----------|
+| Prompt Enhancement | `gemini-2.5-pro` | Google AI |
+| Prompt Refinement | `gemini-2.5-pro` | Google AI |
+| Video Analysis | `gemini-2.5-pro` | Google AI |
+| Video Generation | `veo-3.1-generate-preview` | Google AI |
 
 ## Getting Started
 
@@ -31,8 +42,7 @@ Celea is an AI-powered video generation platform that automates the video refine
 
 - [Bun](https://bun.sh/) installed
 - [Supabase](https://supabase.com/) account
-- [OpenAI](https://platform.openai.com/) API key
-- [Google AI](https://ai.google.dev/) API key with Veo 3.1 access
+- [Google AI API Key](https://aistudio.google.com/app/apikey) with access to Gemini and Veo
 
 ### Installation
 
@@ -47,12 +57,12 @@ cd celea
 bun install
 \`\`\`
 
-3. Set up environment variables:
+3. Create \`.env.local\` file:
 \`\`\`bash
-cp .env.example .env.local
+touch .env.local
 \`\`\`
 
-4. Update `.env.local` with your credentials:
+4. Add your credentials to \`.env.local\`:
 \`\`\`env
 # Database (Supabase PostgreSQL)
 DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true"
@@ -63,13 +73,12 @@ NEXT_PUBLIC_SUPABASE_URL="https://[ref].supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
 SUPABASE_SERVICE_ROLE_KEY="eyJ..."
 
-# AI APIs
-OPENAI_API_KEY="sk-..."
-GOOGLE_AI_API_KEY="..."
+# Google AI API Key (for Gemini 2.5 Pro + Veo 3.1)
+GOOGLE_AI_API_KEY="AI..."
 
 # Inngest (optional for local dev)
-INNGEST_EVENT_KEY="..."
-INNGEST_SIGNING_KEY="..."
+INNGEST_EVENT_KEY=""
+INNGEST_SIGNING_KEY=""
 \`\`\`
 
 5. Set up the database:
@@ -103,7 +112,6 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
    - \`NEXT_PUBLIC_SUPABASE_URL\`
    - \`NEXT_PUBLIC_SUPABASE_ANON_KEY\`
    - \`SUPABASE_SERVICE_ROLE_KEY\`
-   - \`OPENAI_API_KEY\`
    - \`GOOGLE_AI_API_KEY\`
    - \`INNGEST_EVENT_KEY\`
    - \`INNGEST_SIGNING_KEY\`
@@ -132,7 +140,10 @@ celea/
 │   │   ├── prompts.ts          # Central AI prompts
 │   │   ├── db.ts               # Prisma client
 │   │   ├── supabase/           # Supabase clients
-│   │   └── ai/                 # AI service integrations
+│   │   └── ai/
+│   │       ├── google-client.ts # Google AI client utilities
+│   │       ├── gemini.ts        # Gemini 2.5 Pro integration
+│   │       └── veo.ts           # Veo 3.1 integration
 │   ├── inngest/                # Background jobs
 │   └── stores/                 # Zustand stores
 ├── prisma/
@@ -153,9 +164,9 @@ celea/
 | POST | \`/api/pipeline\` | Start video generation |
 | GET | \`/api/job-status/[id]\` | Get job status (SSE) |
 | GET | \`/api/video/[id]\` | Stream/download video |
-| POST | \`/api/enhance-prompt\` | Enhance prompt (direct) |
-| POST | \`/api/generate-video\` | Generate video (direct) |
-| POST | \`/api/analyze-video\` | Analyze video (direct) |
+| POST | \`/api/enhance-prompt\` | Enhance prompt (Gemini 2.5 Pro) |
+| POST | \`/api/generate-video\` | Generate video (Veo 3.1) |
+| POST | \`/api/analyze-video\` | Analyze video (Gemini 2.5 Pro) |
 
 ## Color Scheme
 
@@ -164,6 +175,19 @@ celea/
 - **Accent 1 (Cream)**: RGB(248, 214, 134)
 - **Accent 2 (Cyan)**: RGB(124, 199, 212)
 - **Text**: #2d3748
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| \`DATABASE_URL\` | Supabase PostgreSQL connection (pooler) |
+| \`DIRECT_URL\` | Supabase PostgreSQL direct connection |
+| \`NEXT_PUBLIC_SUPABASE_URL\` | Supabase project URL |
+| \`NEXT_PUBLIC_SUPABASE_ANON_KEY\` | Supabase anon key |
+| \`SUPABASE_SERVICE_ROLE_KEY\` | Supabase service role key |
+| \`GOOGLE_AI_API_KEY\` | Google AI API key (Gemini + Veo) |
+| \`INNGEST_EVENT_KEY\` | Inngest event key |
+| \`INNGEST_SIGNING_KEY\` | Inngest signing key |
 
 ## License
 

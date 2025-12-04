@@ -7,7 +7,7 @@
  */
 
 // =============================================================================
-// GPT-4o PROMPT ENHANCEMENT (Initial)
+// GEMINI 2.5 PRO PROMPT ENHANCEMENT (Initial)
 // Purpose: Transform user's rough prompt into Veo 3.1 optimized cinematic prompt
 // =============================================================================
 
@@ -114,8 +114,8 @@ Output:
 }
 
 // =============================================================================
-// GPT-4o PROMPT REFINEMENT (Iteration Loop)
-// Purpose: Refine prompt based on Gemini's quality analysis feedback
+// GEMINI 2.5 PRO PROMPT REFINEMENT (Iteration Loop)
+// Purpose: Refine prompt based on video analysis feedback
 // =============================================================================
 
 export const PROMPT_REFINEMENT_SYSTEM = `The video didn't made up to the criteria and failed with the following analysis very precisely fix the given prompt to make sure it pass the criteria to exactly match of what user wants. STRICTLY DON'T GIVE ANY EXPLANATIONS JUST OUTPUT THE PROMPT TEXT NOT A SINGLE OTHER WORD`;
@@ -143,7 +143,7 @@ Please refine this prompt to better meet the user's goal.`;
 // =============================================================================
 
 export const VEO_CONFIG = {
-  model: "veo-3.1-fast-generate-preview",
+  model: "veo-3.1-generate-preview",
   maxReferenceImages: 3,
   supportedAspectRatios: ["16:9", "9:16"] as const,
   supportedResolutions: ["720p", "1080p"] as const,

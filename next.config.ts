@@ -1,12 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Fix workspace root warning
-  experimental: {
-    turbo: {
-      root: ".",
-    },
-  },
   // Allow images from Supabase and Google
   images: {
     remotePatterns: [
@@ -17,6 +11,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "storage.googleapis.com",
+      },
+      {
+        protocol: "https",
+        hostname: "generativelanguage.googleapis.com",
       },
     ],
   },

@@ -1,11 +1,8 @@
 import { inngest } from "./client";
 import { db } from "@/lib/db";
-import { enhancePrompt, refinePrompt } from "@/lib/ai/openai";
+import { enhancePrompt, refinePrompt, analyzeVideo } from "@/lib/ai/gemini";
 import { generateVideo } from "@/lib/ai/veo";
-import { analyzeVideo } from "@/lib/ai/gemini";
 import { PIPELINE_CONFIG } from "@/lib/prompts";
-import { createAdminClient } from "@/lib/supabase/server";
-import { v4 as uuidv4 } from "uuid";
 
 interface PipelineStartData {
   jobId: string;
@@ -21,6 +18,7 @@ interface PipelineStartData {
 /**
  * Main video generation pipeline
  * Handles the full flow: enhance → generate → analyze → (refine → repeat if needed)
+ * Uses Gemini 2.5 Pro for all text operations and Veo 3.1 for video generation
  */
 export const videoPipeline = inngest.createFunction(
   {
@@ -68,7 +66,7 @@ export const videoPipeline = inngest.createFunction(
         }
       );
 
-      // Step 1: Enhance prompt (or refine if not first iteration)
+      // Step 1: Enhance prompt using Gemini 2.5 Pro (with reference images)
       enhancedPrompt = await step.run(
         `enhance-prompt-${iteration}`,
         async () => {
@@ -78,7 +76,7 @@ export const videoPipeline = inngest.createFunction(
           });
 
           if (iteration === 1) {
-            // First iteration: enhance the original prompt
+            // First iteration: enhance the original prompt with reference images
             return await enhancePrompt({
               userPrompt: currentPrompt,
               referenceImages: referenceImageUrls,
@@ -104,7 +102,7 @@ export const videoPipeline = inngest.createFunction(
         });
       });
 
-      // Step 2: Generate video
+      // Step 2: Generate video with Veo 3.1
       await step.run(`update-stage-generating-${iteration}`, async () => {
         await db.job.update({
           where: { id: jobId },
@@ -115,7 +113,7 @@ export const videoPipeline = inngest.createFunction(
       const videoResult = await step.run(
         `generate-video-${iteration}`,
         async () => {
-          // Download reference images
+          // Download reference images for Veo
           const referenceImages: Buffer[] = [];
           for (const url of referenceImageUrls) {
             try {
@@ -138,27 +136,7 @@ export const videoPipeline = inngest.createFunction(
         }
       );
 
-      // Upload video to Supabase storage
-      const videoUrl = await step.run(
-        `upload-video-${iteration}`,
-        async () => {
-          // If the video is from Veo (external URL), download and re-upload to our storage
-          // For now, use the URL directly
-          // In production, you'd download the video and upload to Supabase
-          
-          const supabase = createAdminClient();
-          const fileName = `videos/${jobId}/${uuidv4()}.mp4`;
-          
-          // For placeholder, just return the Veo URL
-          // In production:
-          // const videoResponse = await fetch(videoResult.videoUrl);
-          // const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
-          // await supabase.storage.from("celea-media").upload(fileName, videoBuffer);
-          // return supabase.storage.from("celea-media").getPublicUrl(fileName).data.publicUrl;
-          
-          return videoResult.videoUrl;
-        }
-      );
+      const videoUrl = videoResult.videoUrl;
 
       // Update iteration with video URL
       await step.run(`update-iteration-video-${iteration}`, async () => {
@@ -171,7 +149,7 @@ export const videoPipeline = inngest.createFunction(
         });
       });
 
-      // Step 3: Analyze video
+      // Step 3: Analyze video with Gemini 2.5 Pro
       await step.run(`update-stage-analyzing-${iteration}`, async () => {
         await db.job.update({
           where: { id: jobId },
@@ -192,7 +170,7 @@ export const videoPipeline = inngest.createFunction(
           where: { id: iterationRecord.id },
           data: {
             analysisResult: analysis,
-            status: analysis.answer === "yes" ? "COMPLETED" : "COMPLETED",
+            status: "COMPLETED",
           },
         });
       });
@@ -203,7 +181,7 @@ export const videoPipeline = inngest.createFunction(
         break;
       }
 
-      // If not the last iteration, refine the prompt
+      // If not the last iteration, refine the prompt using Gemini 2.5 Pro
       if (iteration < PIPELINE_CONFIG.maxIterations) {
         await step.run(`update-stage-refining-${iteration}`, async () => {
           await db.job.update({
@@ -250,4 +228,3 @@ export const videoPipeline = inngest.createFunction(
 
 // Export all functions for the Inngest route
 export const functions = [videoPipeline];
-

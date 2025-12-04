@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enhancePrompt } from "@/lib/ai/openai";
+import { enhancePrompt } from "@/lib/ai/gemini";
 import { z } from "zod";
 
 const enhanceSchema = z.object({
@@ -11,7 +11,7 @@ const enhanceSchema = z.object({
   negativeTerms: z.array(z.string()).optional(),
 });
 
-// POST /api/enhance-prompt - Enhance a prompt using GPT-4o
+// POST /api/enhance-prompt - Enhance a prompt using Gemini 2.5 Pro
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -51,4 +51,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -15,54 +15,75 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-// Temporary mock data - will be replaced with API calls
-const mockProjects = [
-  {
-    id: "1",
-    name: "Mars Expedition",
-    createdAt: new Date("2024-12-01"),
-    jobCount: 3,
-    latestVideo: "/placeholder-video.mp4",
-  },
-  {
-    id: "2",
-    name: "Urban Dreams",
-    createdAt: new Date("2024-11-28"),
-    jobCount: 5,
-    latestVideo: null,
-  },
-  {
-    id: "3",
-    name: "Ocean Depths",
-    createdAt: new Date("2024-11-25"),
-    jobCount: 2,
-    latestVideo: "/placeholder-video.mp4",
-  },
-];
+interface Project {
+  id: string;
+  name: string;
+  createdAt: string;
+  jobCount?: number;
+}
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/projects");
+      const result = await response.json();
+
+      if (result.success) {
+        setProjects(result.data);
+      } else {
+        setError(result.error || "Failed to load projects");
+      }
+    } catch (err) {
+      setError("Failed to connect to server");
+      console.error("Error fetching projects:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
 
     setIsCreating(true);
-    // TODO: Replace with actual API call
-    const newProject = {
-      id: String(Date.now()),
-      name: newProjectName,
-      createdAt: new Date(),
-      jobCount: 0,
-      latestVideo: null,
-    };
+    setError(null);
 
-    setProjects([newProject, ...projects]);
-    setNewProjectName("");
-    setIsCreateDialogOpen(false);
-    setIsCreating(false);
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: newProjectName }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setProjects([result.data, ...projects]);
+        setNewProjectName("");
+        setIsCreateDialogOpen(false);
+      } else {
+        setError(result.error || "Failed to create project");
+      }
+    } catch (err) {
+      setError("Failed to create project");
+      console.error("Error creating project:", err);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -142,7 +163,7 @@ export default function ProjectsPage() {
                     <Button
                       variant="outline"
                       onClick={() => setIsCreateDialogOpen(false)}
-                      className="border-white/10 text-white hover:bg-white/5"
+                      className="border-white/20 bg-white/5 text-white hover:bg-white/10"
                     >
                       Cancel
                     </Button>
@@ -162,7 +183,28 @@ export default function ProjectsPage() {
 
         {/* Projects Grid */}
         <div className="p-8">
-          {projects.length === 0 ? (
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{error}</p>
+              <Button
+                onClick={() => {
+                  setError(null);
+                  fetchProjects();
+                }}
+                className="mt-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgb(238,133,125)]"></div>
+            </div>
+          ) : projects.length === 0 ? (
             <EmptyState onCreateClick={() => setIsCreateDialogOpen(true)} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -215,31 +257,18 @@ function NavItem({
   );
 }
 
-function ProjectCard({
-  project,
-}: {
-  project: {
-    id: string;
-    name: string;
-    createdAt: Date;
-    jobCount: number;
-    latestVideo: string | null;
-  };
-}) {
+function ProjectCard({ project }: { project: Project }) {
+  const jobCount = project.jobCount || 0;
+  const createdAt = new Date(project.createdAt);
+
   return (
     <Link href={`/projects/${project.id}`}>
       <Card className="bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.05] transition-all cursor-pointer group">
         {/* Video Preview / Placeholder */}
         <div className="aspect-video bg-gradient-to-br from-[rgb(238,133,125)]/20 to-[rgb(193,202,241)]/20 rounded-t-lg relative overflow-hidden">
-          {project.latestVideo ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <PlayIcon className="w-12 h-12 text-white/50 group-hover:text-white/80 transition-colors" />
-            </div>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <VideoIcon className="w-12 h-12 text-white/20" />
-            </div>
-          )}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <VideoIcon className="w-12 h-12 text-white/20 group-hover:text-white/30 transition-colors" />
+          </div>
         </div>
         <CardHeader className="pb-2">
           <CardTitle className="text-white text-lg">{project.name}</CardTitle>
@@ -247,11 +276,9 @@ function ProjectCard({
         <CardContent>
           <div className="flex items-center justify-between text-sm">
             <span className="text-white/40">
-              {project.jobCount} {project.jobCount === 1 ? "video" : "videos"}
+              {jobCount} {jobCount === 1 ? "video" : "videos"}
             </span>
-            <span className="text-white/40">
-              {project.createdAt.toLocaleDateString()}
-            </span>
+            <span className="text-white/40">{createdAt.toLocaleDateString()}</span>
           </div>
         </CardContent>
       </Card>
@@ -283,12 +310,7 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
 // Icons
 function FolderIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -301,12 +323,7 @@ function FolderIcon({ className = "w-5 h-5" }: { className?: string }) {
 
 function SettingsIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -325,38 +342,15 @@ function SettingsIcon({ className = "w-5 h-5" }: { className?: string }) {
 
 function PlusIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 4.5v15m7.5-7.5h-15"
-      />
-    </svg>
-  );
-}
-
-function PlayIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M8 5v14l11-7z" />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
   );
 }
 
 function VideoIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -366,4 +360,3 @@ function VideoIcon({ className = "w-5 h-5" }: { className?: string }) {
     </svg>
   );
 }
-

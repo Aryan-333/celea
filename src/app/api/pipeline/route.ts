@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { inngest } from "@/inngest/client";
+import { runPipeline } from "@/lib/pipeline-runner";
 import { z } from "zod";
 import { PIPELINE_CONFIG, validateVideoSettings } from "@/lib/prompts";
 
@@ -85,19 +85,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Trigger Inngest pipeline
-    await inngest.send({
-      name: "pipeline/start",
-      data: {
-        jobId: job.id,
-        userPrompt: validatedData.userPrompt,
-        referenceImageUrls: validatedData.referenceImages?.map((img) => img.url) || [],
-        settings: {
-          aspectRatio: validatedData.settings.aspectRatio,
-          resolution: validatedData.settings.resolution,
-          duration: finalDuration,
-        },
+    // Start the pipeline in the background (fire and forget)
+    // This runs asynchronously - the API returns immediately
+    // The frontend uses SSE to poll for progress updates
+    runPipeline({
+      jobId: job.id,
+      userPrompt: validatedData.userPrompt,
+      referenceImageUrls: validatedData.referenceImages?.map((img) => img.url) || [],
+      settings: {
+        aspectRatio: validatedData.settings.aspectRatio,
+        resolution: validatedData.settings.resolution,
+        duration: finalDuration,
       },
+    }).catch((error) => {
+      // Log any unhandled errors
+      console.error("Pipeline failed with unhandled error:", error);
     });
 
     return NextResponse.json({
@@ -118,9 +120,11 @@ export async function POST(request: NextRequest) {
 
     console.error("Error starting pipeline:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to start pipeline" },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to start pipeline" 
+      },
       { status: 500 }
     );
   }
 }
-

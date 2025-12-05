@@ -80,8 +80,8 @@ export default function LandingPage() {
 
           {/* Subheadline */}
           <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Stop iterating manually. Celea&apos;s intelligent pipeline uses GPT-4o,
-            Veo 3.1, and Gemini to automatically refine and perfect your videos
+            Stop iterating manually. Celea&apos;s intelligent pipeline uses Gemini 2.5 Pro
+            and Veo 3.1 to automatically refine and perfect your videos
             until they match your vision.
           </p>
 
@@ -98,7 +98,7 @@ export default function LandingPage() {
               asChild
               variant="outline"
               size="lg"
-              className="border-white/20 text-white hover:bg-white/5 text-lg px-8 py-6 rounded-xl"
+              className="border-white/30 bg-white/10 text-white hover:bg-white/20 text-lg px-8 py-6 rounded-xl"
             >
               <Link href="#how-it-works">See How It Works</Link>
             </Button>
@@ -123,7 +123,7 @@ export default function LandingPage() {
                 </svg>
               }
               title="Prompt Enhancement"
-              description="GPT-4o transforms your ideas into cinema-grade prompts with precise camera work, lighting, and composition."
+              description="Gemini 2.5 Pro transforms your ideas into cinema-grade prompts with precise camera work, lighting, and composition."
               color="rgb(238,133,125)"
             />
             <FeatureCard
@@ -227,7 +227,7 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-white/40">
-            <span>Built with GPT-4o, Veo 3.1 & Gemini 2.5 Pro</span>
+            <span>Built with Gemini 2.5 Pro & Veo 3.1</span>
           </div>
         </div>
       </footer>

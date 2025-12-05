@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface Iteration {
   id: string;
   number: number;
-  status: "enhancing" | "generating" | "analyzing" | "completed" | "failed";
+  status: string;
   enhancedPrompt?: string;
   videoUrl?: string;
-  analysis?: {
+  analysisResult?: {
     answer: "yes" | "no";
     explanation: string;
   };
@@ -33,16 +34,20 @@ interface Iteration {
 interface Job {
   id: string;
   userPrompt: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: string;
   currentStage?: string;
   iterations: Iteration[];
   finalVideoUrl?: string;
 }
 
 export default function ProjectDetailPage() {
+  const params = useParams();
+  const projectId = params.id as string;
+
   // Form state
   const [prompt, setPrompt] = useState("");
   const [referenceImages, setReferenceImages] = useState<File[]>([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16">("16:9");
   const [resolution, setResolution] = useState<"720p" | "1080p">("1080p");
   const [duration, setDuration] = useState<4 | 6 | 8>(8);
@@ -53,8 +58,19 @@ export default function ProjectDetailPage() {
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
   const [progress, setProgress] = useState(0);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,91 +89,182 @@ export default function ProjectDetailPage() {
 
   const removeImage = (index: number) => {
     setReferenceImages(referenceImages.filter((_, i) => i !== index));
+    setUploadedImageUrls(uploadedImageUrls.filter((_, i) => i !== index));
   };
 
-  // Handle video generation
+  // Upload reference images to server
+  const uploadImages = async (): Promise<string[]> => {
+    if (referenceImages.length === 0) return [];
+
+    const formData = new FormData();
+    referenceImages.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload images");
+    }
+
+    const result = await response.json();
+    return result.data.map((img: { url: string }) => img.url);
+  };
+
+  // Calculate progress based on job state
+  const calculateProgress = useCallback((job: Job): number => {
+    if (job.status === "COMPLETED") return 100;
+    if (job.status === "FAILED") return 0;
+
+    const iterationCount = job.iterations.length;
+    const maxIterations = 5;
+
+    const stageProgress: Record<string, number> = {
+      enhancing_prompt: 10,
+      generating_video: 50,
+      analyzing_video: 80,
+      refining_prompt: 90,
+      completed: 100,
+    };
+
+    const currentStageProgress = stageProgress[job.currentStage || ""] || 0;
+    const stageContribution = (currentStageProgress / 100) * (100 / maxIterations);
+
+    return Math.min(95, (iterationCount / maxIterations) * 100 + stageContribution);
+  }, []);
+
+  // Start SSE connection to listen for job updates
+  const startJobStatusListener = useCallback((jobId: string) => {
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const eventSource = new EventSource(`/api/job-status/${jobId}`);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.error) {
+          setError(data.error);
+          setIsGenerating(false);
+          eventSource.close();
+          return;
+        }
+
+        if (data.done) {
+          setIsGenerating(false);
+          setProgress(100);
+          eventSource.close();
+          return;
+        }
+
+        // Update job state
+        const updatedJob: Job = {
+          id: jobId,
+          userPrompt: currentJob?.userPrompt || prompt,
+          status: data.status,
+          currentStage: data.currentStage,
+          iterations: data.iterations || [],
+          finalVideoUrl: data.finalVideoUrl,
+        };
+
+        setCurrentJob(updatedJob);
+        setProgress(calculateProgress(updatedJob));
+
+        // If completed, add to jobs list
+        if (data.status === "COMPLETED" || data.status === "FAILED") {
+          setJobs((prev) => [updatedJob, ...prev.filter((j) => j.id !== jobId)]);
+          setIsGenerating(false);
+          eventSource.close();
+        }
+      } catch (e) {
+        console.error("Failed to parse SSE data:", e);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.error("SSE connection error");
+      setError("Connection lost. Please refresh the page.");
+      setIsGenerating(false);
+      eventSource.close();
+    };
+  }, [currentJob, prompt, calculateProgress]);
+
+  // Handle video generation - REAL API CALL
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
     setProgress(0);
+    setError(null);
 
-    // Create a new job
-    const newJob: Job = {
-      id: String(Date.now()),
-      userPrompt: prompt,
-      status: "processing",
-      currentStage: "enhancing_prompt",
-      iterations: [],
-    };
-
-    setCurrentJob(newJob);
-
-    // Simulate pipeline progress (replace with actual API calls)
-    await simulatePipeline(newJob);
-  };
-
-  // Simulated pipeline (replace with actual API implementation)
-  const simulatePipeline = async (job: Job) => {
-    const maxIterations = 3; // Simulating 3 iterations for demo
-
-    for (let i = 1; i <= maxIterations; i++) {
-      const iteration: Iteration = {
-        id: `${job.id}-${i}`,
-        number: i,
-        status: "enhancing",
-      };
-
-      // Update job with new iteration
-      job.iterations.push(iteration);
-      setCurrentJob({ ...job });
-
-      // Simulate enhancement
-      setProgress((i - 1) * 33 + 10);
-      await delay(1500);
-      iteration.status = "generating";
-      iteration.enhancedPrompt = `Enhanced cinematic prompt for iteration ${i}...`;
-      setCurrentJob({ ...job });
-
-      // Simulate video generation
-      setProgress((i - 1) * 33 + 20);
-      await delay(2000);
-      iteration.status = "analyzing";
-      iteration.videoUrl = `/placeholder-video-${i}.mp4`;
-      setCurrentJob({ ...job });
-
-      // Simulate analysis
-      setProgress((i - 1) * 33 + 30);
-      await delay(1000);
-
-      if (i === maxIterations) {
-        // Final iteration passes
-        iteration.status = "completed";
-        iteration.analysis = {
-          answer: "yes",
-          explanation:
-            "Video matches the user goal perfectly. Subject, setting, and cinematic quality all align with requirements.",
-        };
-        job.status = "completed";
-        job.finalVideoUrl = iteration.videoUrl;
-      } else {
-        // Previous iterations fail
-        iteration.status = "completed";
-        iteration.analysis = {
-          answer: "no",
-          explanation: `Iteration ${i}: Minor adjustments needed in lighting and composition. Refining prompt for next iteration.`,
-        };
+    try {
+      // Step 1: Upload reference images if any
+      let imageUrls: string[] = [];
+      if (referenceImages.length > 0) {
+        setProgress(5);
+        imageUrls = await uploadImages();
+        setUploadedImageUrls(imageUrls);
       }
 
-      setCurrentJob({ ...job });
+      setProgress(10);
+
+      // Step 2: Start the pipeline via API
+      const response = await fetch("/api/pipeline", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId,
+          userPrompt: prompt,
+          referenceImages: imageUrls.map((url, i) => ({
+            url,
+            filename: referenceImages[i]?.name || `image-${i}.jpg`,
+          })),
+          settings: {
+            aspectRatio,
+            resolution,
+            duration,
+          },
+          retentionDays,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to start pipeline");
+      }
+
+      const result = await response.json();
+      const jobId = result.data.jobId;
+
+      // Initialize current job
+      setCurrentJob({
+        id: jobId,
+        userPrompt: prompt,
+        status: "PROCESSING",
+        currentStage: "enhancing_prompt",
+        iterations: [],
+      });
+
+      setProgress(15);
+
+      // Step 3: Start listening for job updates via SSE
+      startJobStatusListener(jobId);
+
+    } catch (err) {
+      console.error("Generation error:", err);
+      setError(err instanceof Error ? err.message : "Failed to generate video");
+      setIsGenerating(false);
     }
-
-    setProgress(100);
-    setJobs([job, ...jobs]);
-    setIsGenerating(false);
   };
-
-  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
@@ -199,18 +306,21 @@ export default function ProjectDetailPage() {
                 <div
                   key={job.id}
                   className="p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
+                  onClick={() => setCurrentJob(job)}
                 >
                   <p className="text-sm text-white truncate">{job.userPrompt}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <Badge
-                      variant={job.status === "completed" ? "default" : "secondary"}
+                      variant="secondary"
                       className={
-                        job.status === "completed"
+                        job.status === "COMPLETED"
                           ? "bg-green-500/20 text-green-400 border-green-500/30"
-                          : ""
+                          : job.status === "FAILED"
+                          ? "bg-red-500/20 text-red-400 border-red-500/30"
+                          : "bg-blue-500/20 text-blue-400 border-blue-500/30"
                       }
                     >
-                      {job.status}
+                      {job.status.toLowerCase()}
                     </Badge>
                     <span className="text-xs text-white/40">
                       {job.iterations.length} iterations
@@ -238,6 +348,14 @@ export default function ProjectDetailPage() {
               Describe your vision and let AI generate cinematic videos
             </p>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+              <p className="font-medium">Error</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column - Input Form */}
@@ -473,13 +591,25 @@ export default function ProjectDetailPage() {
                       <h3 className="text-lg font-semibold text-white">
                         {isGenerating ? "Generating Video" : "Generation Complete"}
                       </h3>
-                      {currentJob?.status === "completed" && (
+                      {currentJob?.status === "COMPLETED" && (
                         <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                           <CheckIcon className="w-3 h-3 mr-1" />
                           Approved
                         </Badge>
                       )}
+                      {currentJob?.status === "FAILED" && (
+                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                          Failed
+                        </Badge>
+                      )}
                     </div>
+
+                    {/* Current Stage */}
+                    {isGenerating && currentJob?.currentStage && (
+                      <div className="mb-4 text-sm text-white/60">
+                        {getStageMessage(currentJob.currentStage, currentJob.iterations.length + 1)}
+                      </div>
+                    )}
 
                     {/* Progress Bar */}
                     {isGenerating && (
@@ -506,17 +636,23 @@ export default function ProjectDetailPage() {
                           Final Video
                         </h4>
                         <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
-                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[rgb(238,133,125)]/20 to-[rgb(193,202,241)]/20">
-                            <PlayIcon className="w-16 h-16 text-white/80" />
-                          </div>
+                          <video
+                            src={currentJob.finalVideoUrl}
+                            controls
+                            className="w-full h-full"
+                          />
                         </div>
-                        <Button
-                          variant="outline"
-                          className="w-full mt-4 border-white/10 text-white hover:bg-white/5"
+                        <a
+                          href={currentJob.finalVideoUrl}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          <DownloadIcon className="w-4 h-4 mr-2" />
-                          Download Video
-                        </Button>
+                          <Button className="w-full mt-4 bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white">
+                            <DownloadIcon className="w-4 h-4 mr-2" />
+                            Download Video
+                          </Button>
+                        </a>
                       </div>
                     )}
                   </CardContent>
@@ -548,14 +684,32 @@ export default function ProjectDetailPage() {
   );
 }
 
+// Helper function for stage messages
+function getStageMessage(stage: string, iteration: number): string {
+  switch (stage) {
+    case "enhancing_prompt":
+      return `Iteration ${iteration}: Enhancing prompt with Gemini 2.5 Pro...`;
+    case "generating_video":
+      return `Iteration ${iteration}: Generating video with Veo 3.1 (no audio)...`;
+    case "analyzing_video":
+      return `Iteration ${iteration}: Analyzing video quality...`;
+    case "refining_prompt":
+      return `Iteration ${iteration}: Refining prompt based on analysis...`;
+    case "completed":
+      return "Process completed!";
+    default:
+      return `Processing... (${stage})`;
+  }
+}
+
 function IterationCard({ iteration }: { iteration: Iteration }) {
   const getStatusColor = () => {
     switch (iteration.status) {
-      case "completed":
-        return iteration.analysis?.answer === "yes"
+      case "COMPLETED":
+        return iteration.analysisResult?.answer === "yes"
           ? "bg-green-500/20 text-green-400 border-green-500/30"
           : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      case "failed":
+      case "FAILED":
         return "bg-red-500/20 text-red-400 border-red-500/30";
       default:
         return "bg-blue-500/20 text-blue-400 border-blue-500/30";
@@ -564,15 +718,15 @@ function IterationCard({ iteration }: { iteration: Iteration }) {
 
   const getStatusLabel = () => {
     switch (iteration.status) {
-      case "enhancing":
+      case "ENHANCING":
         return "Enhancing prompt...";
-      case "generating":
+      case "GENERATING":
         return "Generating video...";
-      case "analyzing":
+      case "ANALYZING":
         return "Analyzing quality...";
-      case "completed":
-        return iteration.analysis?.answer === "yes" ? "Approved" : "Needs refinement";
-      case "failed":
+      case "COMPLETED":
+        return iteration.analysisResult?.answer === "yes" ? "Approved" : "Needs refinement";
+      case "FAILED":
         return "Failed";
       default:
         return iteration.status;
@@ -591,21 +745,23 @@ function IterationCard({ iteration }: { iteration: Iteration }) {
       {/* Video Preview */}
       {iteration.videoUrl && (
         <div className="aspect-video bg-black/50 rounded-lg mb-3 relative overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <PlayIcon className="w-8 h-8 text-white/60" />
-          </div>
+          <video
+            src={iteration.videoUrl}
+            controls
+            className="w-full h-full"
+          />
         </div>
       )}
 
       {/* Analysis */}
-      {iteration.analysis && (
+      {iteration.analysisResult && (
         <Accordion type="single" collapsible>
           <AccordionItem value="analysis" className="border-0">
             <AccordionTrigger className="text-sm text-white/60 hover:no-underline py-2">
               View Analysis
             </AccordionTrigger>
             <AccordionContent>
-              <p className="text-sm text-white/50">{iteration.analysis.explanation}</p>
+              <p className="text-sm text-white/50">{iteration.analysisResult.explanation}</p>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -617,80 +773,32 @@ function IterationCard({ iteration }: { iteration: Iteration }) {
 // Icons
 function ChevronLeftIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 19l-7-7 7-7"
-      />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
     </svg>
   );
 }
 
 function PlusIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 4.5v15m7.5-7.5h-15"
-      />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
   );
 }
 
 function XIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  );
-}
-
-function PlayIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M8 5v14l11-7z" />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
 }
 
 function VideoIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-      />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
     </svg>
   );
 }
@@ -698,56 +806,24 @@ function VideoIcon({ className = "w-5 h-5" }: { className?: string }) {
 function SpinnerIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24">
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
     </svg>
   );
 }
 
 function CheckIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M5 13l4 4L19 7"
-      />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
   );
 }
 
 function DownloadIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-      />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
     </svg>
   );
 }
-

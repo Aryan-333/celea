@@ -38,6 +38,7 @@ interface Job {
   currentStage?: string;
   iterations: Iteration[];
   finalVideoUrl?: string;
+  saved?: boolean;
 }
 
 export default function ProjectDetailPage() {
@@ -59,9 +60,57 @@ export default function ProjectDetailPage() {
   const [progress, setProgress] = useState(0);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Load saved jobs on mount
+  useEffect(() => {
+    const fetchSavedJobs = async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data?.jobs) {
+            const savedJobs: Job[] = data.data.jobs.map((job: {
+              id: string;
+              userPrompt: string;
+              status: string;
+              currentStage?: string;
+              finalVideoUrl?: string;
+              iterations: Array<{
+                id: string;
+                number: number;
+                status: string;
+                enhancedPrompt?: string;
+                videoUrl?: string;
+                analysisResult?: { answer: "yes" | "no"; explanation: string };
+              }>;
+            }) => ({
+              id: job.id,
+              userPrompt: job.userPrompt,
+              status: job.status,
+              currentStage: job.currentStage,
+              finalVideoUrl: job.finalVideoUrl,
+              iterations: job.iterations || [],
+              saved: true,
+            }));
+            setJobs(savedJobs);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch saved jobs:", err);
+      }
+    };
+
+    if (projectId) {
+      fetchSavedJobs();
+    }
+  }, [projectId]);
 
   // Cleanup SSE on unmount
   useEffect(() => {
@@ -172,6 +221,7 @@ export default function ProjectDetailPage() {
           currentStage: data.currentStage,
           iterations: data.iterations || [],
           finalVideoUrl: data.finalVideoUrl,
+          saved: false,
         };
 
         setCurrentJob(updatedJob);
@@ -195,6 +245,33 @@ export default function ProjectDetailPage() {
       eventSource.close();
     };
   }, [currentJob, prompt, calculateProgress]);
+
+  // Save the current generation to the left panel
+  const handleSaveGeneration = async () => {
+    if (!currentJob || currentJob.saved) return;
+
+    setIsSaving(true);
+    try {
+      // The job is already saved in the database during pipeline execution
+      // Just mark it as saved in our local state
+      const updatedJob = { ...currentJob, saved: true };
+      setCurrentJob(updatedJob);
+      
+      // Update jobs list - make sure it's at the top and marked as saved
+      setJobs((prev) => {
+        const filtered = prev.filter((j) => j.id !== currentJob.id);
+        return [updatedJob, ...filtered];
+      });
+
+      // Show success feedback
+      alert("Generation saved successfully!");
+    } catch (err) {
+      console.error("Failed to save generation:", err);
+      alert("Failed to save generation. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Handle video generation - REAL API CALL
   const handleGenerate = async () => {
@@ -252,6 +329,7 @@ export default function ProjectDetailPage() {
         status: "PROCESSING",
         currentStage: "enhancing_prompt",
         iterations: [],
+        saved: false,
       });
 
       setProgress(15);
@@ -269,77 +347,105 @@ export default function ProjectDetailPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 border-r border-white/10 bg-[#0d0d14] z-40">
-        {/* Logo */}
-        <div className="p-6 border-b border-white/10">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/celea-logo.png"
-              alt="Celea"
-              width={40}
-              height={40}
-              className="rounded-xl"
-            />
-            <span className="text-xl font-semibold text-white">Celea</span>
-          </Link>
-        </div>
+      <aside
+        className={`fixed left-0 top-0 bottom-0 border-r border-white/10 bg-[#0d0d14] z-40 transition-all duration-300 ${
+          sidebarOpen ? "w-72" : "w-0"
+        } overflow-hidden`}
+      >
+        <div className={`w-72 h-full flex flex-col`}>
+          {/* Logo */}
+          <div className="p-6 border-b border-white/10 flex-shrink-0">
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/celea-logo.png"
+                alt="Celea"
+                width={40}
+                height={40}
+                className="rounded-xl"
+              />
+              <span className="text-xl font-semibold text-white">Celea</span>
+            </Link>
+          </div>
 
-        {/* Back to projects */}
-        <div className="p-4 border-b border-white/10">
-          <Link
-            href="/projects"
-            className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
-          >
-            <ChevronLeftIcon className="w-4 h-4" />
-            Back to Projects
-          </Link>
-        </div>
+          {/* Back to projects */}
+          <div className="p-4 border-b border-white/10 flex-shrink-0">
+            <Link
+              href="/projects"
+              className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+              Back to Projects
+            </Link>
+          </div>
 
-        {/* Previous Jobs */}
-        <div className="p-4">
-          <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-            Previous Videos
-          </h3>
-          <ScrollArea className="h-[calc(100vh-280px)]">
-            <div className="space-y-2">
-              {jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
-                  onClick={() => setCurrentJob(job)}
-                >
-                  <p className="text-sm text-white truncate">{job.userPrompt}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge
-                      variant="secondary"
-                      className={
-                        job.status === "COMPLETED"
-                          ? "bg-green-500/20 text-green-400 border-green-500/30"
-                          : job.status === "FAILED"
-                          ? "bg-red-500/20 text-red-400 border-red-500/30"
-                          : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                      }
-                    >
-                      {job.status.toLowerCase()}
-                    </Badge>
-                    <span className="text-xs text-white/40">
-                      {job.iterations.length} iterations
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {jobs.length === 0 && (
-                <p className="text-sm text-white/30 text-center py-4">
-                  No videos generated yet
-                </p>
-              )}
+          {/* Previous Jobs */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 pb-2 flex-shrink-0">
+              <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+                Previous Videos
+              </h3>
             </div>
-          </ScrollArea>
+            <ScrollArea className="flex-1 px-4 pb-4">
+              <div className="space-y-2">
+                {jobs.map((job) => (
+                  <div
+                    key={job.id}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      currentJob?.id === job.id
+                        ? "bg-white/10 border-[rgb(238,133,125)]/50"
+                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                    }`}
+                    onClick={() => setCurrentJob(job)}
+                  >
+                    <p className="text-sm text-white line-clamp-2">{job.userPrompt}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge
+                        variant="secondary"
+                        className={
+                          job.status === "COMPLETED"
+                            ? "bg-green-500/20 text-green-400 border-green-500/30"
+                            : job.status === "FAILED"
+                            ? "bg-red-500/20 text-red-400 border-red-500/30"
+                            : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                        }
+                      >
+                        {job.status.toLowerCase()}
+                      </Badge>
+                      <span className="text-xs text-white/40">
+                        {job.iterations.length} iterations
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {jobs.length === 0 && (
+                  <p className="text-sm text-white/30 text-center py-8">
+                    No videos generated yet
+                  </p>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </aside>
 
+      {/* Sidebar Toggle Button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`fixed top-1/2 -translate-y-1/2 z-50 w-6 h-12 bg-[#1a1f2e] border border-white/10 rounded-r-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-[#252a3a] transition-all ${
+          sidebarOpen ? "left-72" : "left-0"
+        }`}
+      >
+        <ChevronLeftIcon
+          className={`w-4 h-4 transition-transform ${sidebarOpen ? "" : "rotate-180"}`}
+        />
+      </button>
+
       {/* Main Content */}
-      <main className="pl-64">
+      <main
+        className={`transition-all duration-300 ${
+          sidebarOpen ? "pl-72" : "pl-0"
+        }`}
+      >
         <div className="max-w-6xl mx-auto p-8">
           {/* Header */}
           <div className="mb-8">
@@ -642,17 +748,50 @@ export default function ProjectDetailPage() {
                             className="w-full h-full"
                           />
                         </div>
-                        <a
-                          href={currentJob.finalVideoUrl}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button className="w-full mt-4 bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white">
-                            <DownloadIcon className="w-4 h-4 mr-2" />
-                            Download Video
-                          </Button>
-                        </a>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 mt-4">
+                          <a
+                            href={currentJob.finalVideoUrl}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1"
+                          >
+                            <Button className="w-full bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white">
+                              <DownloadIcon className="w-4 h-4 mr-2" />
+                              Download Video
+                            </Button>
+                          </a>
+                          
+                          {/* Save Generation Button */}
+                          {!currentJob.saved && (
+                            <Button
+                              onClick={handleSaveGeneration}
+                              disabled={isSaving}
+                              className="flex-1 bg-[rgb(124,199,212)] hover:bg-[rgb(104,179,192)] text-white"
+                            >
+                              {isSaving ? (
+                                <span className="flex items-center gap-2">
+                                  <SpinnerIcon className="w-4 h-4 animate-spin" />
+                                  Saving...
+                                </span>
+                              ) : (
+                                <>
+                                  <SaveIcon className="w-4 h-4 mr-2" />
+                                  Save Generation
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          
+                          {currentJob.saved && (
+                            <div className="flex-1 flex items-center justify-center text-green-400 text-sm">
+                              <CheckIcon className="w-4 h-4 mr-1" />
+                              Saved
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -824,6 +963,14 @@ function DownloadIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+}
+
+function SaveIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
     </svg>
   );
 }

@@ -29,22 +29,6 @@ export const videoPipeline = inngest.createFunction(
     id: "video-pipeline",
     name: "Video Generation Pipeline",
     retries: 1, // Retry once on failure
-    onFailure: async ({ error, event }) => {
-      // Mark job as failed in database
-      const { jobId } = event.data as PipelineStartData;
-      console.error(`[Inngest] Pipeline failed for job ${jobId}:`, error);
-      try {
-        await db.job.update({
-          where: { id: jobId },
-          data: {
-            status: "FAILED",
-            currentStage: "failed",
-          },
-        });
-      } catch (dbError) {
-        console.error("[Inngest] Failed to update job status:", dbError);
-      }
-    },
   },
   { event: "pipeline/start" },
   async ({ event, step }) => {

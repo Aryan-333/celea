@@ -252,12 +252,14 @@ export async function runPipeline(params: PipelineParams): Promise<void> {
         console.log(`  - geminiAnalysis: ${JSON.stringify(analysis)}`);
         console.log(`  - existingPrompt: ${enhancedPrompt.length} chars`);
         console.log(`  - originalUserGoal: ${userPrompt.length} chars`);
+        console.log(`  - referenceImages: ${referenceImageUrls.length} URLs`);
 
         try {
           currentPrompt = await refinePrompt({
             geminiAnalysis: analysis,
             existingPrompt: enhancedPrompt,
             originalUserGoal: userPrompt,
+            referenceImages: referenceImageUrls, // Pass reference images for visual context
           });
           
           console.log("\n[Pipeline] REFINED PROMPT:");

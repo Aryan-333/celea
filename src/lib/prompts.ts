@@ -120,7 +120,7 @@ ${enhancedPrompt}`;
 
 Analyze the video against the user's original Goal above. The "Prompt used to generate this video" shows the detailed prompt sent to the video generation model - use this context to understand what was intended.
 
-Give Binary answer in JSON yes or no does this video actually up to the mark and satisfies the Goal defined above for the video. In explanation give reason why it failed and also what should be changed to make a better generation (without ever mentioning the word "prompt").Take care about each of the specification made by the user even like small things. Make sure the transitions in the video are smooth and not dissolve or cross-dissolve until specifically asked by the user or that's the only way possible to do. But don't be too strict if it meet major criterias by the user, don;t try to over optimize and over strict.
+Give Binary answer in JSON yes or no does this video actually up to the mark and satisfies the Goal defined above for the video.Take care about each of the specification made by the user even like small things. Make sure the transitions in the video are smooth and not dissolve or cross-dissolve until specifically asked by the user or that's the only way possible to do. But don't be too strict if it meet major criterias by the user, don;t try to over optimize and over strict.
 
 Output:
 {
@@ -142,8 +142,14 @@ export function buildPromptRefinementUserMessage(params: {
   geminiAnalysis: { answer: string; explanation: string };
   existingPrompt: string;
   originalUserGoal: string;
+  referenceImages?: string[]; // URLs of reference images
 }): string {
-  const { geminiAnalysis, existingPrompt, originalUserGoal } = params;
+  const { geminiAnalysis, existingPrompt, originalUserGoal, referenceImages = [] } = params;
+  
+  // Build reference images section if present
+  const refImagesSection = referenceImages.length > 0
+    ? `\nReference Images: ${JSON.stringify(referenceImages)}\n(The reference images are attached to this message for visual context)`
+    : "";
 
   return `Gemini Analysis Response: 
 ${JSON.stringify(geminiAnalysis, null, 2)}
@@ -151,9 +157,57 @@ ${JSON.stringify(geminiAnalysis, null, 2)}
 Existing Prompt Sent to Veo 3.1:
 ${existingPrompt}
 
-User's Original Goal: ${originalUserGoal}
+User's Original Goal: ${originalUserGoal}${refImagesSection}
 
-Please refine this prompt to better meet the user's goal.`;
+Please refine this prompt to better meet the user's goal. Keeping these rules in consideration to generate the best most optimal prompt to make the video with fixes that were remaining last time.
+
+1) a single high-quality Veo 3.1 prompt string 
+You must obey all constraints below and keep the final Veo prompt under ~900 tokens (hard limit: 1024). 
+STRICTLY DON'T GIVE ANY EXPLANATIONS JUST OUTPUT THE PROMPT TEXT NOT A SINGLE OTHER WORD
+
+PROMPT STYLE RULES
+- Lead with optics first (one concise paragraph ~35–60 words): Shot type · Camera position/angle · Lens/focus · Lighting/ambience · Time of day · Setting; then the subject performing concrete actions.
+- Use explicit control lines, one per line, in this order when applicable:
+  Camera: <motion + framing beats>
+  Composition: <framing constraints>
+  Ambience: <color/lighting/weather/particles>
+  Style: <film look / animation style / era / color palette>
+  Performance: <micro-actions/facial beats if people/creatures appear>
+  Continuity: <things that must remain constant across frames>
+  Audio: Dialogue "<line(s)>"; SFX: <comma nouns>; Ambient: <background bed>
+- For negatives, list nouns only. DO NOT use "no/don't".
+- If using reference images, bind traits explicitly to each ref index (e.g., "Match hair/eyes from ref#2; outfit from ref#1; glasses from ref#3").
+- Maintain clarity and brevity; avoid vague adjectives; prefer concrete verbs and cinematography terms.
+- Keep within token budget.
+
+ASSEMBLY ALGORITHM
+1) Parse user_rough_prompt → extract: subject(s), action(s), setting, time, mood, style hints, any audio cues, any negatives and see the gemini anlaysis prompt to see what was lacking last time that should be improved now.
+2) Normalize and enrich with cinematic specifics (shot type, camera motion, composition, lens/focus, lighting/ambience, color mood).
+3) Compose the final prompt in this exact structure:
+
+[OPENING PARAGRAPH ~35–60 words focusing on optics then subject+action]
+
+Camera: <motion + framing beats>
+Composition: <key framing constraints>
+Ambience: <lighting/color/weather/particles>
+Style: <aesthetic / era / palette>
+Performance: <micro actions or facial beats>          // include only if people/creatures appear
+Continuity: <props/wardrobe/identity to preserve>     // include if applicable
+Audio: "<dialogue lines if any>"
+SFX: <concrete sounds, comma-separated if any>
+Ambient: <background bed if any>
+
+Aspect ratio: <16:9|9:16>
+Resolution: <720p|1080p>
+Duration: <4s|6s|8s>
+Negative prompt: <merged comma list>
+
+TUNING HINTS
+- Prefer concrete cinematography vocabulary (e.g., "slow dolly-in", "handheld micro-jitter", "rack focus to foreground", "medium close-up").
+- Write dialogue in quotes; keep to ≤2 lines for 8s clips.
+- When unspecified, choose default values provided.
+- Keep control lines terse; avoid redundant adjectives; favor verbs (drifts, pans, tilts, holds, tracks).
+`;
 }
 
 // =============================================================================

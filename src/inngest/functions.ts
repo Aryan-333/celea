@@ -202,6 +202,7 @@ export const videoPipeline = inngest.createFunction(
               geminiAnalysis: analysis,
               existingPrompt: enhancedPrompt,
               originalUserGoal: userPrompt,
+              referenceImages: referenceImageUrls, // Pass reference images for visual context
             });
           }
         );

@@ -205,10 +205,12 @@ export interface RefinePromptParams {
   geminiAnalysis: { answer: string; explanation: string };
   existingPrompt: string;
   originalUserGoal: string;
+  referenceImages?: string[]; // URLs of reference images
 }
 
 /**
  * Refine a prompt based on video analysis feedback
+ * Now includes reference images for visual context (similar to enhancePrompt)
  */
 export async function refinePrompt(params: RefinePromptParams): Promise<string> {
   console.log("\n" + "█".repeat(80));
@@ -216,7 +218,10 @@ export async function refinePrompt(params: RefinePromptParams): Promise<string> 
   console.log("█".repeat(80));
   
   console.log("\n[Gemini] REFINEMENT INPUT:");
-  console.log(JSON.stringify(params, null, 2));
+  console.log(JSON.stringify({
+    ...params,
+    referenceImages: params.referenceImages?.length || 0,
+  }, null, 2));
   
   const userMessage = buildPromptRefinementUserMessage(params);
   
@@ -230,8 +235,43 @@ export async function refinePrompt(params: RefinePromptParams): Promise<string> 
   console.log(userMessage);
   console.log("-".repeat(40));
 
+  // Build the content parts (similar to enhancePrompt)
+  const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
+
+  // Add reference images if provided
+  if (params.referenceImages && params.referenceImages.length > 0) {
+    console.log(`\n[Gemini] Processing ${params.referenceImages.length} reference images for refinement...`);
+    for (const imageUrl of params.referenceImages.slice(0, 3)) {
+      try {
+        console.log(`[Gemini] Fetching image: ${imageUrl}`);
+        const response = await fetch(imageUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString("base64");
+          const mimeType = response.headers.get("content-type") || "image/jpeg";
+          console.log(`[Gemini] Image fetched: ${mimeType}, ${arrayBuffer.byteLength} bytes`);
+          parts.push({
+            inline_data: {
+              mime_type: mimeType,
+              data: base64,
+            },
+          });
+        } else {
+          console.error(`[Gemini] Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+      } catch (e) {
+        console.error("[Gemini] Error fetching reference image:", imageUrl, e);
+      }
+    }
+  }
+
   const fullPrompt = `${PROMPT_REFINEMENT_SYSTEM}\n\n${userMessage}`;
   console.log(`\n[Gemini] Combined prompt length: ${fullPrompt.length} chars`);
+
+  // Add the text prompt
+  parts.push({ text: fullPrompt });
+
+  console.log(`\n[Gemini] Total parts: ${parts.length} (${parts.filter(p => p.inline_data).length} images, ${parts.filter(p => p.text).length} text)`);
 
   try {
     const response = await googleAIRequest<{
@@ -253,11 +293,7 @@ export async function refinePrompt(params: RefinePromptParams): Promise<string> 
       body: {
         contents: [
           {
-            parts: [
-              {
-                text: fullPrompt,
-              },
-            ],
+            parts,
           },
         ],
       generationConfig: {

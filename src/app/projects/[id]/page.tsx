@@ -31,6 +31,12 @@ interface Iteration {
   };
 }
 
+interface ReferenceImage {
+  id: string;
+  url: string;
+  filename: string;
+}
+
 interface Job {
   id: string;
   userPrompt: string;
@@ -39,6 +45,7 @@ interface Job {
   iterations: Iteration[];
   finalVideoUrl?: string;
   saved?: boolean; // Track if explicitly saved to sidebar
+  referenceImages?: ReferenceImage[]; // Reference images used for this generation
 }
 
 export default function ProjectDetailPage() {
@@ -104,6 +111,11 @@ export default function ProjectDetailPage() {
                   videoUrl?: string;
                   analysisResult?: { answer: "yes" | "no"; explanation: string };
                 }>;
+                referenceImages?: Array<{
+                  id: string;
+                  url: string;
+                  filename: string;
+                }>;
               }) => ({
                 id: job.id,
                 userPrompt: job.userPrompt,
@@ -111,6 +123,7 @@ export default function ProjectDetailPage() {
                 currentStage: job.currentStage,
                 finalVideoUrl: job.finalVideoUrl,
                 iterations: job.iterations || [],
+                referenceImages: job.referenceImages || [],
                 saved: true,
               }));
             setSavedJobs(jobs);
@@ -327,8 +340,20 @@ export default function ProjectDetailPage() {
 
     setIsSaving(true);
     try {
-      // Mark as saved and add to sidebar
-      const savedJob = { ...currentJob, saved: true };
+      // Build reference images from current uploaded URLs if not already present
+      const refImages: ReferenceImage[] = currentJob.referenceImages || 
+        uploadedImageUrls.map((url, idx) => ({
+          id: `temp-${idx}`,
+          url,
+          filename: referenceImages[idx]?.name || `image-${idx + 1}`,
+        }));
+      
+      // Mark as saved and add to sidebar with reference images
+      const savedJob: Job = { 
+        ...currentJob, 
+        saved: true,
+        referenceImages: refImages,
+      };
       setCurrentJob(savedJob);
       setSavedJobs((prev) => {
         // Avoid duplicates
@@ -971,6 +996,52 @@ export default function ProjectDetailPage() {
                             </div>
                           )}
                         </div>
+                        
+                        {/* Reference Images Used (for saved generations) */}
+                        {currentJob.referenceImages && currentJob.referenceImages.length > 0 && (
+                          <div className="mt-6 pt-4 border-t border-white/10">
+                            <h5 className="text-sm font-medium text-white/70 mb-3">
+                              Reference Images Used ({currentJob.referenceImages.length})
+                            </h5>
+                            <div className="flex flex-wrap gap-2">
+                              {currentJob.referenceImages.map((img) => (
+                                <div
+                                  key={img.id}
+                                  className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group"
+                                >
+                                  <Image
+                                    src={img.url}
+                                    alt={img.filename}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <a
+                                      href={img.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-white/80 hover:text-white text-xs"
+                                    >
+                                      View
+                                    </a>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Original Prompt (for saved generations) */}
+                        {currentJob.saved && (
+                          <div className="mt-4 pt-4 border-t border-white/10">
+                            <h5 className="text-sm font-medium text-white/70 mb-2">
+                              Original Prompt
+                            </h5>
+                            <p className="text-sm text-white/50 bg-white/5 rounded-lg p-3">
+                              {currentJob.userPrompt}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>

@@ -332,9 +332,17 @@ export async function analyzeVideo(
   }
 
   // Download the video
-  const videoResponse = await fetch(videoUrl);
+  // If it's a Google AI URL, we need to add the API key header
+  const isGoogleAIUrl = videoUrl.includes("generativelanguage.googleapis.com");
+  const fetchHeaders: HeadersInit = isGoogleAIUrl
+    ? { "x-goog-api-key": process.env.GOOGLE_AI_API_KEY || "" }
+    : {};
+  
+  console.log(`[Gemini] Fetching video (Google AI URL: ${isGoogleAIUrl})`);
+  
+  const videoResponse = await fetch(videoUrl, { headers: fetchHeaders });
   if (!videoResponse.ok) {
-    throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+    throw new Error(`Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`);
   }
 
   const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());

@@ -1080,11 +1080,10 @@ function IterationCard({ iteration }: { iteration: Iteration }) {
   const getStatusLabel = () => {
     switch (iteration.status) {
       case "ENHANCING":
-        return "Enhancing prompt...";
       case "GENERATING":
-        return "Generating video...";
+        return "Generating...";
       case "ANALYZING":
-        return "Analyzing quality...";
+        return "Analyzing...";
       case "COMPLETED":
         return iteration.analysisResult?.answer === "yes" ? "Approved" : "Needs refinement";
       case "FAILED":

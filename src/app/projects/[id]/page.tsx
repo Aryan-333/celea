@@ -890,7 +890,7 @@ export default function ProjectDetailPage() {
                     {/* Current Stage */}
                     {isGenerating && currentJob?.currentStage && (
                       <div className="mb-4 text-sm text-white/60">
-                        {getStageMessage(currentJob.currentStage, currentJob.iterations.length + 1)}
+                        {getStageMessage(currentJob.currentStage, Math.max(1, currentJob.iterations.length))}
                       </div>
                     )}
 

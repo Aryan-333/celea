@@ -120,7 +120,7 @@ ${enhancedPrompt}`;
 
 Analyze the video against the user's original Goal above. The "Prompt used to generate this video" shows the detailed prompt sent to the video generation model - use this context to understand what was intended.
 
-Give Binary answer in JSON yes or no does this video actually up to the mark and satisfies the Goal defined above for the video. In explanation give reason why it failed and also what should be changed to make a better generation (without ever mentioning the word "prompt"). Be strict about each of the specification made by the user even like small things. Make sure the transitions in the video are smooth and not dissolve or cross-dissolve until specifically asked by the user or that's the only way possible to do. 
+Give Binary answer in JSON yes or no does this video actually up to the mark and satisfies the Goal defined above for the video. In explanation give reason why it failed and also what should be changed to make a better generation (without ever mentioning the word "prompt").Take care about each of the specification made by the user even like small things. Make sure the transitions in the video are smooth and not dissolve or cross-dissolve until specifically asked by the user or that's the only way possible to do. But don't be too strict if it meet major criterias by the user, don;t try to over optimize and over strict.
 
 Output:
 {

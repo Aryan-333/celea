@@ -24,9 +24,12 @@ const pipelineSchema = z.object({
   retentionDays: z.number().min(-1).max(365).default(PIPELINE_CONFIG.defaultRetentionDays),
 });
 
-// Use Inngest ONLY in production on Vercel (not in local development)
-// Local dev always runs the pipeline directly for easier debugging
-const useInngest = process.env.VERCEL === "1" && process.env.NODE_ENV === "production";
+// Use Inngest when:
+// 1. In production on Vercel, OR
+// 2. Explicitly enabled via USE_INNGEST=true (for local dev with Inngest Dev Server)
+const useInngest = 
+  (process.env.VERCEL === "1" && process.env.NODE_ENV === "production") ||
+  process.env.USE_INNGEST === "true";
 
 // POST /api/pipeline - Start video generation pipeline
 export async function POST(request: NextRequest) {

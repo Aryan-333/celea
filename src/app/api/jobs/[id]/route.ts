@@ -99,7 +99,7 @@ export async function DELETE(
   }
 }
 
-// PATCH /api/jobs/[id] - Rename a job (update userPrompt display name)
+// PATCH /api/jobs/[id] - Rename a job (update displayName, NOT userPrompt)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -107,18 +107,19 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { userPrompt } = body;
+    const { displayName } = body;
 
-    if (!userPrompt || typeof userPrompt !== "string") {
+    if (!displayName || typeof displayName !== "string") {
       return NextResponse.json(
-        { success: false, error: "userPrompt is required" },
+        { success: false, error: "displayName is required" },
         { status: 400 }
       );
     }
 
+    // Update displayName only - userPrompt is preserved as the original prompt
     const job = await db.job.update({
       where: { id },
-      data: { userPrompt },
+      data: { displayName: displayName.trim() },
     });
 
     return NextResponse.json({

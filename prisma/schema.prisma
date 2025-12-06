@@ -23,7 +23,8 @@ model Job {
   id              String           @id @default(cuid())
   projectId       String
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userPrompt      String           @db.Text
+  userPrompt      String           @db.Text // Original prompt - NEVER modified after creation
+  displayName     String?          // Optional custom name for sidebar display
   settings        Json             // {aspectRatio, resolution, duration}
   status          String           @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
   currentStage    String?

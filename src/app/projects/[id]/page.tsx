@@ -39,7 +39,8 @@ interface ReferenceImage {
 
 interface Job {
   id: string;
-  userPrompt: string;
+  userPrompt: string; // Original prompt - never modified
+  displayName?: string; // Custom name for sidebar display (set by rename)
   status: string;
   currentStage?: string;
   iterations: Iteration[];
@@ -100,6 +101,7 @@ export default function ProjectDetailPage() {
               .map((job: {
                 id: string;
                 userPrompt: string;
+                displayName?: string;
                 status: string;
                 currentStage?: string;
                 finalVideoUrl?: string;
@@ -119,6 +121,7 @@ export default function ProjectDetailPage() {
               }) => ({
                 id: job.id,
                 userPrompt: job.userPrompt,
+                displayName: job.displayName,
                 status: job.status,
                 currentStage: job.currentStage,
                 finalVideoUrl: job.finalVideoUrl,
@@ -141,23 +144,24 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
-  // Handle rename job
-  const handleRenameJob = async (jobId: string, newPrompt: string) => {
+  // Handle rename job - updates displayName, NOT userPrompt
+  const handleRenameJob = async (jobId: string, newDisplayName: string) => {
     try {
       const response = await fetch(`/api/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userPrompt: newPrompt }),
+        body: JSON.stringify({ displayName: newDisplayName }),
       });
 
       if (response.ok) {
+        // Update displayName only - userPrompt stays as original
         setSavedJobs((prev) =>
           prev.map((job) =>
-            job.id === jobId ? { ...job, userPrompt: newPrompt } : job
+            job.id === jobId ? { ...job, displayName: newDisplayName } : job
           )
         );
         if (currentJob?.id === jobId) {
-          setCurrentJob({ ...currentJob, userPrompt: newPrompt });
+          setCurrentJob({ ...currentJob, displayName: newDisplayName });
         }
       }
     } catch (err) {
@@ -521,6 +525,13 @@ export default function ProjectDetailPage() {
                         onClick={() => {
                           if (editingJobId !== job.id) {
                             setCurrentJob(job);
+                            // Populate form fields with saved job data
+                            setPrompt(job.userPrompt);
+                            // Set reference image URLs from the saved job
+                            const savedImageUrls = job.referenceImages?.map(img => img.url) || [];
+                            setUploadedImageUrls(savedImageUrls);
+                            // Clear file references since we're loading from URLs
+                            setReferenceImages([]);
                           }
                         }}
                       >
@@ -582,7 +593,8 @@ export default function ProjectDetailPage() {
                                 <button
                                   onClick={() => {
                                     setEditingJobId(job.id);
-                                    setEditingPrompt(job.userPrompt);
+                                    // Start with displayName if set, otherwise use userPrompt
+                                    setEditingPrompt(job.displayName || job.userPrompt);
                                     setActiveDropdown(null);
                                   }}
                                   className="w-full px-3 py-2 text-left text-sm text-white/70 hover:bg-white/10 hover:text-white flex items-center gap-2"
@@ -600,7 +612,10 @@ export default function ProjectDetailPage() {
                               </div>
                             )}
 
-                            <p className="text-sm text-white line-clamp-2 pr-6">{job.userPrompt}</p>
+                            {/* Show displayName if set, otherwise show userPrompt */}
+                            <p className="text-sm text-white line-clamp-2 pr-6">
+                              {job.displayName || job.userPrompt}
+                            </p>
                             <div className="flex items-center gap-2 mt-2">
                               <Badge
                                 variant="secondary"
@@ -702,9 +717,10 @@ export default function ProjectDetailPage() {
                   />
 
                   <div className="grid grid-cols-3 gap-3">
+                    {/* Show newly uploaded images (File objects) */}
                     {referenceImages.map((file, index) => (
                       <div
-                        key={index}
+                        key={`file-${index}`}
                         className="relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10"
                       >
                         <Image
@@ -722,7 +738,34 @@ export default function ProjectDetailPage() {
                         </button>
                       </div>
                     ))}
-                    {referenceImages.length < 3 && (
+                    {/* Show saved images from URLs (when viewing saved generation) */}
+                    {referenceImages.length === 0 && uploadedImageUrls.map((url, index) => (
+                      <div
+                        key={`url-${index}`}
+                        className="relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10"
+                      >
+                        <Image
+                          src={url}
+                          alt={`Reference ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        {/* Only show remove button when not in a saved generation view */}
+                        {!currentJob?.saved && (
+                          <button
+                            onClick={() => {
+                              setUploadedImageUrls(prev => prev.filter((_, i) => i !== index));
+                            }}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                            disabled={isGenerating}
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {/* Show add button if less than 3 images total */}
+                    {(referenceImages.length + (referenceImages.length === 0 ? uploadedImageUrls.length : 0)) < 3 && !currentJob?.saved && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         className="aspect-square rounded-lg border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 hover:text-white/60 hover:border-white/20 transition-colors"
@@ -996,52 +1039,6 @@ export default function ProjectDetailPage() {
                             </div>
                           )}
                         </div>
-                        
-                        {/* Reference Images Used (for saved generations) */}
-                        {currentJob.referenceImages && currentJob.referenceImages.length > 0 && (
-                          <div className="mt-6 pt-4 border-t border-white/10">
-                            <h5 className="text-sm font-medium text-white/70 mb-3">
-                              Reference Images Used ({currentJob.referenceImages.length})
-                            </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {currentJob.referenceImages.map((img) => (
-                                <div
-                                  key={img.id}
-                                  className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group"
-                                >
-                                  <Image
-                                    src={img.url}
-                                    alt={img.filename}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <a
-                                      href={img.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-white/80 hover:text-white text-xs"
-                                    >
-                                      View
-                                    </a>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Original Prompt (for saved generations) */}
-                        {currentJob.saved && (
-                          <div className="mt-4 pt-4 border-t border-white/10">
-                            <h5 className="text-sm font-medium text-white/70 mb-2">
-                              Original Prompt
-                            </h5>
-                            <p className="text-sm text-white/50 bg-white/5 rounded-lg p-3">
-                              {currentJob.userPrompt}
-                            </p>
-                          </div>
-                        )}
                       </div>
                     )}
                   </CardContent>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { runPipeline } from "@/lib/pipeline-runner";
+import { inngest } from "@/inngest/client";
 import { z } from "zod";
 import { PIPELINE_CONFIG, validateVideoSettings } from "@/lib/prompts";
 
@@ -23,6 +23,10 @@ const pipelineSchema = z.object({
   }),
   retentionDays: z.number().min(-1).max(365).default(PIPELINE_CONFIG.defaultRetentionDays),
 });
+
+// Check if we're in production or have Inngest configured
+const useInngest = process.env.NODE_ENV === "production" || 
+                   (process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);
 
 // POST /api/pipeline - Start video generation pipeline
 export async function POST(request: NextRequest) {
@@ -85,29 +89,49 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Start the pipeline in the background (fire and forget)
-    // This runs asynchronously - the API returns immediately
-    // The frontend uses SSE to poll for progress updates
-    runPipeline({
-      jobId: job.id,
-      userPrompt: validatedData.userPrompt,
-      referenceImageUrls: validatedData.referenceImages?.map((img) => img.url) || [],
-      settings: {
-        aspectRatio: validatedData.settings.aspectRatio,
-        resolution: validatedData.settings.resolution,
-        duration: finalDuration,
-      },
-    }).catch((error) => {
-      // Log any unhandled errors
-      console.error("Pipeline failed with unhandled error:", error);
-    });
+    // Start the pipeline
+    if (useInngest) {
+      // PRODUCTION: Use Inngest for background jobs (handles long-running tasks)
+      console.log(`[Pipeline] Starting job ${job.id} via Inngest (production mode)`);
+      await inngest.send({
+        name: "pipeline/start",
+        data: {
+          jobId: job.id,
+          userPrompt: validatedData.userPrompt,
+          referenceImageUrls: validatedData.referenceImages?.map((img) => img.url) || [],
+          settings: {
+            aspectRatio: validatedData.settings.aspectRatio,
+            resolution: validatedData.settings.resolution,
+            duration: finalDuration,
+          },
+        },
+      });
+    } else {
+      // DEVELOPMENT: Run pipeline directly (works with bun dev)
+      console.log(`[Pipeline] Starting job ${job.id} via direct runner (dev mode)`);
+      const { runPipeline } = await import("@/lib/pipeline-runner");
+      runPipeline({
+        jobId: job.id,
+        userPrompt: validatedData.userPrompt,
+        referenceImageUrls: validatedData.referenceImages?.map((img) => img.url) || [],
+        settings: {
+          aspectRatio: validatedData.settings.aspectRatio,
+          resolution: validatedData.settings.resolution,
+          duration: finalDuration,
+        },
+      }).catch((error) => {
+        console.error("[Pipeline] Failed with unhandled error:", error);
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         jobId: job.id,
         status: "PENDING",
-        message: "Pipeline started successfully",
+        message: useInngest 
+          ? "Pipeline started via Inngest (background job)" 
+          : "Pipeline started directly (dev mode)",
       },
     });
   } catch (error) {

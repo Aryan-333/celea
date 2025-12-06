@@ -16,7 +16,11 @@ interface PipelineStartData {
 }
 
 /**
- * Main video generation pipeline
+ * Main video generation pipeline (PRODUCTION)
+ * 
+ * This runs as an Inngest background job, which can execute for up to 2 hours.
+ * This is necessary because video generation with Veo 3.1 takes 5-10 minutes.
+ * 
  * Handles the full flow: enhance → generate → analyze → (refine → repeat if needed)
  * Uses Gemini 2.5 Pro for all text operations and Veo 3.1 for video generation
  */
@@ -24,7 +28,23 @@ export const videoPipeline = inngest.createFunction(
   {
     id: "video-pipeline",
     name: "Video Generation Pipeline",
-    retries: 0, // Handle retries manually for better control
+    retries: 1, // Retry once on failure
+    onFailure: async ({ error, event }) => {
+      // Mark job as failed in database
+      const { jobId } = event.data as PipelineStartData;
+      console.error(`[Inngest] Pipeline failed for job ${jobId}:`, error);
+      try {
+        await db.job.update({
+          where: { id: jobId },
+          data: {
+            status: "FAILED",
+            currentStage: "failed",
+          },
+        });
+      } catch (dbError) {
+        console.error("[Inngest] Failed to update job status:", dbError);
+      }
+    },
   },
   { event: "pipeline/start" },
   async ({ event, step }) => {

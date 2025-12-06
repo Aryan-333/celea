@@ -70,6 +70,10 @@ export default function ProjectDetailPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState("");
+  
+  // Delete confirmation modal state
+  const [deleteConfirmJobId, setDeleteConfirmJobId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -150,29 +154,37 @@ export default function ProjectDetailPage() {
     setEditingPrompt("");
   };
 
-  // Handle delete job
-  const handleDeleteJob = async (jobId: string) => {
-    if (!confirm("Are you sure you want to delete this generation? This will also delete all associated videos and images from storage.")) {
-      return;
-    }
-
+  // Handle delete job - actual deletion
+  const confirmDeleteJob = async () => {
+    if (!deleteConfirmJobId) return;
+    
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/jobs/${jobId}`, {
+      const response = await fetch(`/api/jobs/${deleteConfirmJobId}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
-        setSavedJobs((prev) => prev.filter((job) => job.id !== jobId));
-        if (currentJob?.id === jobId) {
+        setSavedJobs((prev) => prev.filter((job) => job.id !== deleteConfirmJobId));
+        if (currentJob?.id === deleteConfirmJobId) {
           setCurrentJob(null);
         }
       } else {
-        alert("Failed to delete job. Please try again.");
+        setError("Failed to delete generation. Please try again.");
       }
     } catch (err) {
       console.error("Failed to delete job:", err);
-      alert("Failed to delete job. Please try again.");
+      setError("Failed to delete generation. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmJobId(null);
+      setActiveDropdown(null);
     }
+  };
+  
+  // Handle delete job - show confirmation modal
+  const handleDeleteJob = (jobId: string) => {
+    setDeleteConfirmJobId(jobId);
     setActiveDropdown(null);
   };
 
@@ -986,6 +998,50 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmJobId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !isDeleting && setDeleteConfirmJobId(null)}
+          />
+          {/* Modal */}
+          <div className="relative bg-[#1a1f2e] border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Delete Generation?
+            </h3>
+            <p className="text-sm text-white/60 mb-6">
+              This will permanently delete this generation including all associated videos and images from storage. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteConfirmJobId(null)}
+                disabled={isDeleting}
+                className="text-white/60 hover:text-white hover:bg-white/10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteJob}
+                disabled={isDeleting}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                {isDeleting ? (
+                  <>
+                    <SpinnerIcon className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

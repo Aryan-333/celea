@@ -202,10 +202,12 @@ export async function runPipeline(params: PipelineParams): Promise<void> {
       console.log("[Pipeline] Calling analyzeVideo with:");
       console.log(`  - videoUrl: ${videoUrl}`);
       console.log(`  - userGoal (original prompt): ${userPrompt.length} chars`);
+      console.log(`  - enhancedPrompt (generation prompt): ${enhancedPrompt.length} chars`);
 
       let analysis: { answer: "yes" | "no"; explanation: string };
       try {
-        analysis = await analyzeVideo(videoUrl, userPrompt);
+        // Pass the enhanced prompt so Gemini knows what prompt was used to generate this video
+        analysis = await analyzeVideo(videoUrl, userPrompt, enhancedPrompt);
       } catch (error) {
         console.error(`[Pipeline] ERROR in analyzing video:`, error);
         // If analysis fails, assume it passes (to not block the pipeline)

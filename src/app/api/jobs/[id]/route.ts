@@ -20,10 +20,12 @@ export async function DELETE(
     });
 
     if (!job) {
-      return NextResponse.json(
-        { success: false, error: "Job not found" },
-        { status: 404 }
-      );
+      // Job already deleted or doesn't exist - return success to prevent UI errors
+      console.log(`[Delete Job] Job ${id} not found (already deleted or doesn't exist)`);
+      return NextResponse.json({
+        success: true,
+        message: "Job already deleted or does not exist",
+      });
     }
 
     // Delete files from Supabase storage
@@ -73,11 +75,16 @@ export async function DELETE(
     }
 
     // Delete job from database (cascades to iterations and reference images)
-    await db.job.delete({
+    // Use deleteMany to avoid error if record was deleted by another request
+    const deleteResult = await db.job.deleteMany({
       where: { id },
     });
 
-    console.log(`[Delete Job] Successfully deleted job ${id}`);
+    if (deleteResult.count === 0) {
+      console.log(`[Delete Job] Job ${id} was already deleted by another request`);
+    } else {
+      console.log(`[Delete Job] Successfully deleted job ${id}`);
+    }
 
     return NextResponse.json({
       success: true,

@@ -5,6 +5,7 @@ import { z } from "zod";
 const analyzeSchema = z.object({
   videoUrl: z.string().url(),
   userGoal: z.string().min(1),
+  enhancedPrompt: z.string().optional(), // The prompt used to generate the video
 });
 
 // POST /api/analyze-video - Analyze video using Gemini 2.5 Pro
@@ -15,7 +16,8 @@ export async function POST(request: NextRequest) {
 
     const result = await analyzeVideo(
       validatedData.videoUrl,
-      validatedData.userGoal
+      validatedData.userGoal,
+      validatedData.enhancedPrompt
     );
 
     return NextResponse.json({

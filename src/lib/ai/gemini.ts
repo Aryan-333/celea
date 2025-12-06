@@ -317,7 +317,8 @@ export interface AnalysisResult {
  */
 export async function analyzeVideo(
   videoUrl: string,
-  userGoal: string
+  userGoal: string,
+  enhancedPrompt?: string
 ): Promise<AnalysisResult> {
   console.log("\n" + "█".repeat(80));
   console.log("█ GEMINI ANALYZE VIDEO - START");
@@ -326,6 +327,9 @@ export async function analyzeVideo(
   console.log("\n[Gemini] ANALYSIS INPUT:");
   console.log(`[Gemini] Video URL: ${videoUrl}`);
   console.log(`[Gemini] User Goal (FULL): ${userGoal}`);
+  if (enhancedPrompt) {
+    console.log(`[Gemini] Enhanced Prompt (used for generation): ${enhancedPrompt.substring(0, 200)}...`);
+  }
 
   // Download the video
   const videoResponse = await fetch(videoUrl);
@@ -337,7 +341,7 @@ export async function analyzeVideo(
   const videoSize = videoBuffer.length;
   console.log(`[Gemini] Video size: ${videoSize} bytes (${(videoSize / 1024 / 1024).toFixed(2)} MB)`);
 
-  const prompt = buildVideoAnalysisPrompt(userGoal);
+  const prompt = buildVideoAnalysisPrompt({ userGoal, enhancedPrompt });
   
   console.log("\n[Gemini] VIDEO ANALYSIS PROMPT (FULL):");
   console.log("-".repeat(40));

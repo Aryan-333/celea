@@ -164,7 +164,8 @@ export const videoPipeline = inngest.createFunction(
       const analysis = await step.run(
         `analyze-video-${iteration}`,
         async () => {
-          return await analyzeVideo(videoUrl, userPrompt);
+          // Pass the enhanced prompt so Gemini knows what was requested for this video
+          return await analyzeVideo(videoUrl, userPrompt, enhancedPrompt);
         }
       );
 

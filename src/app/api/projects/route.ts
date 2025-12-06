@@ -9,11 +9,17 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       include: {
         _count: {
-          select: { jobs: true },
+          select: {
+            // Count only COMPLETED jobs (saved generations)
+            jobs: {
+              where: { status: "COMPLETED" },
+            },
+          },
         },
         jobs: {
           take: 1,
           orderBy: { createdAt: "desc" },
+          where: { status: "COMPLETED" },
           select: {
             finalVideoUrl: true,
             status: true,
@@ -29,7 +35,7 @@ export async function GET() {
         name: p.name,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
-        jobCount: p._count.jobs,
+        jobCount: p._count.jobs, // Now only counts COMPLETED jobs
         latestJob: p.jobs[0] || null,
       })),
     });

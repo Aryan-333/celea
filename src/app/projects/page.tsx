@@ -276,7 +276,7 @@ function ProjectCard({ project }: { project: Project }) {
         <CardContent>
           <div className="flex items-center justify-between text-sm">
             <span className="text-white/40">
-              {jobCount} {jobCount === 1 ? "video" : "videos"}
+              {jobCount} saved {jobCount === 1 ? "generation" : "generations"}
             </span>
             <span className="text-white/40">{createdAt.toLocaleDateString()}</span>
           </div>

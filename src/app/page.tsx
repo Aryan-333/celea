@@ -69,14 +69,17 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Main Headline - Just the tagline */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-12 leading-[1.2]">
+          {/* Main Headline */}
+          <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
             <span className="bg-gradient-to-r from-[rgb(238,133,125)] via-[rgb(193,202,241)] to-[rgb(124,199,212)] bg-clip-text text-transparent">
-              Celea, self-iterating AI
+              Celea
             </span>
-            <br />
-            <span className="text-white">for final takes in Hollywood</span>
           </h1>
+
+          {/* Tagline */}
+          <p className="text-xl md:text-2xl text-white/70 mb-12">
+            Celea, self-iterating AI for final takes in Hollywood
+          </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

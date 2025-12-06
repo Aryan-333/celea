@@ -38,7 +38,7 @@ interface Job {
   currentStage?: string;
   iterations: Iteration[];
   finalVideoUrl?: string;
-  saved?: boolean;
+  saved?: boolean; // Track if explicitly saved to sidebar
 }
 
 export default function ProjectDetailPage() {
@@ -58,7 +58,7 @@ export default function ProjectDetailPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
   const [progress, setProgress] = useState(0);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [savedJobs, setSavedJobs] = useState<Job[]>([]); // Only saved jobs appear in sidebar
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -68,47 +68,50 @@ export default function ProjectDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Load saved jobs on mount
+  // Load saved jobs from database on mount
   useEffect(() => {
-    const fetchSavedJobs = async () => {
+    const loadSavedJobs = async () => {
       try {
         const response = await fetch(`/api/projects/${projectId}`);
         if (response.ok) {
           const data = await response.json();
           if (data.data?.jobs) {
-            const savedJobs: Job[] = data.data.jobs.map((job: {
-              id: string;
-              userPrompt: string;
-              status: string;
-              currentStage?: string;
-              finalVideoUrl?: string;
-              iterations: Array<{
+            // Only load COMPLETED jobs as saved
+            const jobs: Job[] = data.data.jobs
+              .filter((job: { status: string }) => job.status === "COMPLETED")
+              .map((job: {
                 id: string;
-                number: number;
+                userPrompt: string;
                 status: string;
-                enhancedPrompt?: string;
-                videoUrl?: string;
-                analysisResult?: { answer: "yes" | "no"; explanation: string };
-              }>;
-            }) => ({
-              id: job.id,
-              userPrompt: job.userPrompt,
-              status: job.status,
-              currentStage: job.currentStage,
-              finalVideoUrl: job.finalVideoUrl,
-              iterations: job.iterations || [],
-              saved: true,
-            }));
-            setJobs(savedJobs);
+                currentStage?: string;
+                finalVideoUrl?: string;
+                iterations: Array<{
+                  id: string;
+                  number: number;
+                  status: string;
+                  enhancedPrompt?: string;
+                  videoUrl?: string;
+                  analysisResult?: { answer: "yes" | "no"; explanation: string };
+                }>;
+              }) => ({
+                id: job.id,
+                userPrompt: job.userPrompt,
+                status: job.status,
+                currentStage: job.currentStage,
+                finalVideoUrl: job.finalVideoUrl,
+                iterations: job.iterations || [],
+                saved: true,
+              }));
+            setSavedJobs(jobs);
           }
         }
       } catch (err) {
-        console.error("Failed to fetch saved jobs:", err);
+        console.error("Failed to load saved jobs:", err);
       }
     };
 
     if (projectId) {
-      fetchSavedJobs();
+      loadSavedJobs();
     }
   }, [projectId]);
 
@@ -221,15 +224,14 @@ export default function ProjectDetailPage() {
           currentStage: data.currentStage,
           iterations: data.iterations || [],
           finalVideoUrl: data.finalVideoUrl,
-          saved: false,
+          saved: false, // Not saved yet
         };
 
         setCurrentJob(updatedJob);
         setProgress(calculateProgress(updatedJob));
 
-        // If completed, add to jobs list
+        // If completed or failed, close SSE
         if (data.status === "COMPLETED" || data.status === "FAILED") {
-          setJobs((prev) => [updatedJob, ...prev.filter((j) => j.id !== jobId)]);
           setIsGenerating(false);
           eventSource.close();
         }
@@ -246,31 +248,36 @@ export default function ProjectDetailPage() {
     };
   }, [currentJob, prompt, calculateProgress]);
 
-  // Save the current generation to the left panel
+  // Save current generation to sidebar
   const handleSaveGeneration = async () => {
     if (!currentJob || currentJob.saved) return;
 
     setIsSaving(true);
     try {
-      // The job is already saved in the database during pipeline execution
-      // Just mark it as saved in our local state
-      const updatedJob = { ...currentJob, saved: true };
-      setCurrentJob(updatedJob);
-      
-      // Update jobs list - make sure it's at the top and marked as saved
-      setJobs((prev) => {
-        const filtered = prev.filter((j) => j.id !== currentJob.id);
-        return [updatedJob, ...filtered];
+      // Mark as saved and add to sidebar
+      const savedJob = { ...currentJob, saved: true };
+      setCurrentJob(savedJob);
+      setSavedJobs((prev) => {
+        // Avoid duplicates
+        const filtered = prev.filter((j) => j.id !== savedJob.id);
+        return [savedJob, ...filtered];
       });
-
-      // Show success feedback
-      alert("Generation saved successfully!");
     } catch (err) {
       console.error("Failed to save generation:", err);
-      alert("Failed to save generation. Please try again.");
+      alert("Failed to save generation");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Start new generation (clear current and show blank form)
+  const handleNewGeneration = () => {
+    setCurrentJob(null);
+    setPrompt("");
+    setReferenceImages([]);
+    setUploadedImageUrls([]);
+    setProgress(0);
+    setError(null);
   };
 
   // Handle video generation - REAL API CALL
@@ -348,11 +355,11 @@ export default function ProjectDetailPage() {
     <div className="min-h-screen bg-[#0a0a0f]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 border-r border-white/10 bg-[#0d0d14] z-40 transition-all duration-300 ${
+        className={`fixed left-0 top-0 bottom-0 border-r border-white/10 bg-[#0d0d14] z-40 transition-all duration-300 ease-in-out ${
           sidebarOpen ? "w-72" : "w-0"
         } overflow-hidden`}
       >
-        <div className={`w-72 h-full flex flex-col`}>
+        <div className="w-72 h-full flex flex-col">
           {/* Logo */}
           <div className="p-6 border-b border-white/10 flex-shrink-0">
             <Link href="/" className="flex items-center gap-3">
@@ -378,16 +385,28 @@ export default function ProjectDetailPage() {
             </Link>
           </div>
 
-          {/* Previous Jobs */}
+          {/* New Generation Button */}
+          <div className="p-4 border-b border-white/10 flex-shrink-0">
+            <Button
+              onClick={handleNewGeneration}
+              className="w-full bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white"
+              disabled={isGenerating}
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              New Generation
+            </Button>
+          </div>
+
+          {/* Saved Generations */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="p-4 pb-2 flex-shrink-0">
               <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider">
-                Previous Videos
+                Saved Generations
               </h3>
             </div>
             <ScrollArea className="flex-1 px-4 pb-4">
               <div className="space-y-2">
-                {jobs.map((job) => (
+                {savedJobs.map((job) => (
                   <div
                     key={job.id}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -401,15 +420,9 @@ export default function ProjectDetailPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <Badge
                         variant="secondary"
-                        className={
-                          job.status === "COMPLETED"
-                            ? "bg-green-500/20 text-green-400 border-green-500/30"
-                            : job.status === "FAILED"
-                            ? "bg-red-500/20 text-red-400 border-red-500/30"
-                            : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                        }
+                        className="bg-green-500/20 text-green-400 border-green-500/30"
                       >
-                        {job.status.toLowerCase()}
+                        completed
                       </Badge>
                       <span className="text-xs text-white/40">
                         {job.iterations.length} iterations
@@ -417,9 +430,9 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                 ))}
-                {jobs.length === 0 && (
+                {savedJobs.length === 0 && (
                   <p className="text-sm text-white/30 text-center py-8">
-                    No videos generated yet
+                    No saved generations yet
                   </p>
                 )}
               </div>
@@ -431,18 +444,19 @@ export default function ProjectDetailPage() {
       {/* Sidebar Toggle Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={`fixed top-1/2 -translate-y-1/2 z-50 w-6 h-12 bg-[#1a1f2e] border border-white/10 rounded-r-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-[#252a3a] transition-all ${
+        className={`fixed top-1/2 -translate-y-1/2 z-50 w-6 h-14 bg-[#1a1f2e] border border-white/10 rounded-r-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-[#252a3a] transition-all duration-300 ${
           sidebarOpen ? "left-72" : "left-0"
         }`}
+        title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
       >
         <ChevronLeftIcon
-          className={`w-4 h-4 transition-transform ${sidebarOpen ? "" : "rotate-180"}`}
+          className={`w-4 h-4 transition-transform duration-300 ${sidebarOpen ? "" : "rotate-180"}`}
         />
       </button>
 
       {/* Main Content */}
       <main
-        className={`transition-all duration-300 ${
+        className={`transition-all duration-300 ease-in-out ${
           sidebarOpen ? "pl-72" : "pl-0"
         }`}
       >
@@ -751,6 +765,7 @@ export default function ProjectDetailPage() {
                         
                         {/* Action Buttons */}
                         <div className="flex gap-3 mt-4">
+                          {/* Download Button */}
                           <a
                             href={currentJob.finalVideoUrl}
                             download
@@ -764,7 +779,7 @@ export default function ProjectDetailPage() {
                             </Button>
                           </a>
                           
-                          {/* Save Generation Button */}
+                          {/* Save Generation Button - Only show if not saved */}
                           {!currentJob.saved && (
                             <Button
                               onClick={handleSaveGeneration}
@@ -785,10 +800,11 @@ export default function ProjectDetailPage() {
                             </Button>
                           )}
                           
+                          {/* Saved indicator */}
                           {currentJob.saved && (
-                            <div className="flex-1 flex items-center justify-center text-green-400 text-sm">
-                              <CheckIcon className="w-4 h-4 mr-1" />
-                              Saved
+                            <div className="flex-1 flex items-center justify-center gap-2 text-green-400 text-sm bg-green-500/10 rounded-lg py-2">
+                              <CheckIcon className="w-4 h-4" />
+                              Saved to sidebar
                             </div>
                           )}
                         </div>

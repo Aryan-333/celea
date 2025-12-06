@@ -96,7 +96,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-center">
           <div className="flex items-center gap-3">
             <Image
               src="/celea-logo.png"
@@ -106,11 +106,8 @@ export default function LandingPage() {
               className="rounded-lg"
             />
             <span className="text-white/60 text-sm">
-              © 2024 Celea. Self-iterating AI for Hollywood.
+              © 2025 Celea. Self-iterating AI for Hollywood.
             </span>
-          </div>
-          <div className="flex items-center gap-6 text-sm text-white/40">
-            <span>Built with Gemini 2.5 Pro & Veo 3.1</span>
           </div>
         </div>
       </footer>

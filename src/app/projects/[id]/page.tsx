@@ -61,9 +61,15 @@ export default function ProjectDetailPage() {
   const [savedJobs, setSavedJobs] = useState<Job[]>([]); // Only saved jobs appear in sidebar
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true); // Loading state for saved jobs
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Dropdown menu state
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -71,6 +77,7 @@ export default function ProjectDetailPage() {
   // Load saved jobs from database on mount
   useEffect(() => {
     const loadSavedJobs = async () => {
+      setIsLoadingJobs(true);
       try {
         const response = await fetch(`/api/projects/${projectId}`);
         if (response.ok) {
@@ -107,6 +114,8 @@ export default function ProjectDetailPage() {
         }
       } catch (err) {
         console.error("Failed to load saved jobs:", err);
+      } finally {
+        setIsLoadingJobs(false);
       }
     };
 
@@ -114,6 +123,58 @@ export default function ProjectDetailPage() {
       loadSavedJobs();
     }
   }, [projectId]);
+
+  // Handle rename job
+  const handleRenameJob = async (jobId: string, newPrompt: string) => {
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userPrompt: newPrompt }),
+      });
+
+      if (response.ok) {
+        setSavedJobs((prev) =>
+          prev.map((job) =>
+            job.id === jobId ? { ...job, userPrompt: newPrompt } : job
+          )
+        );
+        if (currentJob?.id === jobId) {
+          setCurrentJob({ ...currentJob, userPrompt: newPrompt });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to rename job:", err);
+    }
+    setEditingJobId(null);
+    setEditingPrompt("");
+  };
+
+  // Handle delete job
+  const handleDeleteJob = async (jobId: string) => {
+    if (!confirm("Are you sure you want to delete this generation? This will also delete all associated videos and images from storage.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setSavedJobs((prev) => prev.filter((job) => job.id !== jobId));
+        if (currentJob?.id === jobId) {
+          setCurrentJob(null);
+        }
+      } else {
+        alert("Failed to delete job. Please try again.");
+      }
+    } catch (err) {
+      console.error("Failed to delete job:", err);
+      alert("Failed to delete job. Please try again.");
+    }
+    setActiveDropdown(null);
+  };
 
   // Cleanup SSE on unmount
   useEffect(() => {
@@ -406,34 +467,124 @@ export default function ProjectDetailPage() {
             </div>
             <ScrollArea className="flex-1 px-4 pb-4">
               <div className="space-y-2">
-                {savedJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      currentJob?.id === job.id
-                        ? "bg-white/10 border-[rgb(238,133,125)]/50"
-                        : "bg-white/5 border-white/10 hover:bg-white/10"
-                    }`}
-                    onClick={() => setCurrentJob(job)}
-                  >
-                    <p className="text-sm text-white line-clamp-2">{job.userPrompt}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-500/20 text-green-400 border-green-500/30"
-                      >
-                        completed
-                      </Badge>
-                      <span className="text-xs text-white/40">
-                        {job.iterations.length} iterations
-                      </span>
-                    </div>
+                {isLoadingJobs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <SpinnerIcon className="w-6 h-6 animate-spin text-white/40" />
                   </div>
-                ))}
-                {savedJobs.length === 0 && (
-                  <p className="text-sm text-white/30 text-center py-8">
-                    No saved generations yet
-                  </p>
+                ) : (
+                  <>
+                    {savedJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className={`group relative p-3 rounded-lg border cursor-pointer transition-colors ${
+                          currentJob?.id === job.id
+                            ? "bg-white/10 border-[rgb(238,133,125)]/50"
+                            : "bg-white/5 border-white/10 hover:bg-white/10"
+                        }`}
+                        onClick={() => {
+                          if (editingJobId !== job.id) {
+                            setCurrentJob(job);
+                          }
+                        }}
+                      >
+                        {/* Edit mode */}
+                        {editingJobId === job.id ? (
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={editingPrompt}
+                              onChange={(e) => setEditingPrompt(e.target.value)}
+                              className="w-full px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleRenameJob(job.id, editingPrompt);
+                                } else if (e.key === "Escape") {
+                                  setEditingJobId(null);
+                                  setEditingPrompt("");
+                                }
+                              }}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRenameJob(job.id, editingPrompt)}
+                                className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingJobId(null);
+                                  setEditingPrompt("");
+                                }}
+                                className="px-2 py-1 text-xs bg-white/10 text-white/60 rounded hover:bg-white/20"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Three dots menu */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdown(activeDropdown === job.id ? null : job.id);
+                              }}
+                              className="absolute top-2 right-2 w-6 h-6 rounded flex items-center justify-center text-white/40 opacity-0 group-hover:opacity-100 hover:bg-white/10 hover:text-white transition-all"
+                            >
+                              <MoreIcon className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown menu */}
+                            {activeDropdown === job.id && (
+                              <div
+                                className="absolute top-8 right-2 z-50 bg-[#1a1f2e] border border-white/10 rounded-lg shadow-xl py-1 min-w-[120px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() => {
+                                    setEditingJobId(job.id);
+                                    setEditingPrompt(job.userPrompt);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm text-white/70 hover:bg-white/10 hover:text-white flex items-center gap-2"
+                                >
+                                  <EditIcon className="w-4 h-4" />
+                                  Rename
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteJob(job.id)}
+                                  className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+
+                            <p className="text-sm text-white line-clamp-2 pr-6">{job.userPrompt}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge
+                                variant="secondary"
+                                className="bg-green-500/20 text-green-400 border-green-500/30"
+                              >
+                                completed
+                              </Badge>
+                              <span className="text-xs text-white/40">
+                                {job.iterations.length} iterations
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {savedJobs.length === 0 && (
+                      <p className="text-sm text-white/30 text-center py-8">
+                        No saved generations yet
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </ScrollArea>
@@ -987,6 +1138,30 @@ function SaveIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+    </svg>
+  );
+}
+
+function MoreIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+    </svg>
+  );
+}
+
+function EditIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );
 }

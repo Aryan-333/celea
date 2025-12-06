@@ -1050,17 +1050,16 @@ export default function ProjectDetailPage() {
 function getStageMessage(stage: string, iteration: number): string {
   switch (stage) {
     case "enhancing_prompt":
-      return `Iteration ${iteration}: Enhancing prompt with Gemini 2.5 Pro...`;
     case "generating_video":
-      return `Iteration ${iteration}: Generating video with Veo 3.1 (no audio)...`;
+      return `Generating iteration ${iteration}...`;
     case "analyzing_video":
-      return `Iteration ${iteration}: Analyzing video quality...`;
+      return `Analyzing generation ${iteration}...`;
     case "refining_prompt":
-      return `Iteration ${iteration}: Refining prompt based on analysis...`;
+      return `Preparing iteration ${iteration + 1}...`;
     case "completed":
-      return "Process completed!";
+      return "Generation complete!";
     default:
-      return `Processing... (${stage})`;
+      return `Processing...`;
   }
 }
 

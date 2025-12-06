@@ -69,24 +69,17 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Main Headline */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
+          {/* Main Headline - Just the tagline */}
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-12 leading-[1.2]">
             <span className="bg-gradient-to-r from-[rgb(238,133,125)] via-[rgb(193,202,241)] to-[rgb(124,199,212)] bg-clip-text text-transparent">
-              Celea
+              Celea, self-iterating AI
             </span>
-            <span className="text-white">, self-iterating AI</span>
             <br />
             <span className="text-white">for final takes in Hollywood</span>
           </h1>
 
-          {/* Subheadline */}
-          <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Stop iterating manually. Let AI reason about your videos and automatically
-            refine them until they match your vision.
-          </p>
-
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
               asChild
               size="lg"
@@ -94,92 +87,6 @@ export default function LandingPage() {
             >
               <Link href="/projects">Start Creating</Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="border-white/30 bg-white/10 text-white hover:bg-white/20 text-lg px-8 py-6 rounded-xl"
-            >
-              <Link href="#how-it-works">Learn More</Link>
-            </Button>
-          </div>
-
-          {/* How It Works - Simple Card */}
-          <div
-            id="how-it-works"
-            className="max-w-3xl mx-auto p-8 md:p-12 rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-sm"
-          >
-            <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">
-              How Celea Works
-            </h2>
-            
-            <p className="text-white/70 text-lg leading-relaxed mb-8">
-              Celea gives video generation models a <span className="text-[rgb(238,133,125)] font-medium">reasoning capability</span>. 
-              Instead of generating a single video and hoping it&apos;s right, Celea creates an 
-              intelligent loop:
-            </p>
-
-            <div className="space-y-6 text-left">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[rgb(238,133,125)]/20 flex items-center justify-center text-[rgb(238,133,125)] font-semibold">
-                  1
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-1">Enhance Your Prompt</h3>
-                  <p className="text-white/50 text-sm">
-                    Gemini 2.5 Pro transforms your rough idea into a cinema-grade prompt with 
-                    precise camera work, lighting, and composition details.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[rgb(193,202,241)]/20 flex items-center justify-center text-[rgb(193,202,241)] font-semibold">
-                  2
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-1">Generate Video</h3>
-                  <p className="text-white/50 text-sm">
-                    Veo 3.1 creates the video based on the enhanced prompt and any reference 
-                    images you&apos;ve provided.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[rgb(124,199,212)]/20 flex items-center justify-center text-[rgb(124,199,212)] font-semibold">
-                  3
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-1">Analyze & Reason</h3>
-                  <p className="text-white/50 text-sm">
-                    Gemini watches the generated video and compares it to your original goal. 
-                    Does it match? If not, it figures out exactly what&apos;s wrong.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[rgb(248,214,134)]/20 flex items-center justify-center text-[rgb(248,214,134)] font-semibold">
-                  ↺
-                </div>
-                <div>
-                  <h3 className="text-white font-medium mb-1">Auto-Refine Until Perfect</h3>
-                  <p className="text-white/50 text-sm">
-                    If the video doesn&apos;t pass, Celea automatically refines the prompt based 
-                    on the analysis and generates again. This loops up to 5 times until you 
-                    get the perfect take.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <p className="text-white/40 text-sm">
-                <span className="text-[rgb(238,133,125)]">No more manual iteration.</span>{" "}
-                Celea thinks about what went wrong and fixes it automatically.
-              </p>
-            </div>
           </div>
         </div>
       </main>

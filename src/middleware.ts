@@ -1,27 +1,35 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createHash } from "crypto";
 
 const INVITE_COOKIE_NAME = "celea_invite_verified";
 
-// Verify cookie signature
-function verifyCookieSignature(cookieValue: string): boolean {
+// Simple hash using Web Crypto API (Edge Runtime compatible)
+async function hashString(str: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Verify cookie signature (async for Web Crypto)
+async function verifyCookieSignature(cookieValue: string): Promise<boolean> {
   const parts = cookieValue.split(".");
   if (parts.length !== 2) return false;
-  
+
   const [value, signature] = parts;
   const secret = process.env.INVITE_SECRET || "celea-default-secret-change-in-production";
-  const expectedSignature = createHash("sha256").update(value + secret).digest("hex").slice(0, 16);
-  
+  const expectedSignature = (await hashString(value + secret)).slice(0, 16);
+
   return signature === expectedSignature;
 }
 
 // Routes that require invite code verification
 const PROTECTED_ROUTES = ["/projects"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
+
   // Check if the route is protected
   const isProtectedRoute = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
@@ -33,14 +41,15 @@ export function middleware(request: NextRequest) {
 
   // Check for valid invite cookie
   const inviteCookie = request.cookies.get(INVITE_COOKIE_NAME);
-  
+
   if (!inviteCookie?.value) {
     // No cookie - redirect to invite page
     return NextResponse.redirect(new URL("/invite", request.url));
   }
 
   // Verify cookie signature to prevent tampering
-  if (!verifyCookieSignature(inviteCookie.value)) {
+  const isValid = await verifyCookieSignature(inviteCookie.value);
+  if (!isValid) {
     // Invalid/tampered cookie - redirect to invite page
     const response = NextResponse.redirect(new URL("/invite", request.url));
     // Clear the invalid cookie
@@ -58,4 +67,3 @@ export const config = {
     "/projects/:path*",
   ],
 };
-

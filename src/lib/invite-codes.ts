@@ -16,7 +16,7 @@ function hashCode(code: string): string {
 // These are SHA-256 hashes of the actual 6-character alphanumeric codes
 const VALID_CODE_HASHES = new Set([
   // CELEA1
-  hashCode("CELEA1"),
+  hashCode("ASQWZX"),
   // CELEA2
   hashCode("CELEA2"),
   // CELEA3

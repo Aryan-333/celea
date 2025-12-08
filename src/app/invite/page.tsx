@@ -229,16 +229,21 @@ export default function InvitePage() {
               </Button>
             </form>
 
-            {/* Help text */}
-            <p className="text-white/30 text-xs text-center mt-6">
-              Don&apos;t have an invite code?{" "}
-              <button
-                onClick={() => setShowWaitlistModal(true)}
-                className="text-[rgb(238,133,125)] hover:underline cursor-pointer font-medium"
-              >
-                Request access
-              </button>
-            </p>
+            {/* Divider */}
+            <div className="flex items-center gap-4 mt-6">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white/30 text-xs uppercase tracking-wider">or</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Waitlist Button */}
+            <Button
+              type="button"
+              onClick={() => setShowWaitlistModal(true)}
+              className="w-full h-12 mt-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white text-base font-medium rounded-xl transition-all"
+            >
+              Join the Waitlist
+            </Button>
           </div>
 
           {/* Back link */}

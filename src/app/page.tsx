@@ -58,18 +58,18 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
             <span className="w-2 h-2 rounded-full bg-[rgb(238,133,125)] animate-pulse" />
             <span className="text-sm text-white/70">
-              Inserts, Establishing shots, and Background Asset Builders for Hollywood
+            Build Inserts, Establishing shots, and Background VFX assets
             </span>
           </div>
 
           {/* Main Logo */}
-          <div className="mb-6 flex justify-center">
+          <div className="mb-8 flex justify-center">
             <Image
               src="/celea-logo.png"
               alt="Celea"
-              width={200}
-              height={200}
-              className="rounded-2xl"
+              width={280}
+              height={280}
+              className="rounded-3xl"
             />
           </div>
 

@@ -29,23 +29,23 @@ export default function LandingPage() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-50 py-4">
+        <div className="flex items-center justify-between px-4">
           <div className="flex items-center">
             <Image
               src="/celea-logo.png"
               alt="Celea"
-              width={56}
-              height={56}
+              width={78}
+              height={78}
               className="rounded-xl"
             />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 pr-4">
             <Button
               asChild
               className="bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white border-0"
             >
-              <Link href="/projects">Get Started</Link>
+              <Link href="/invite">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function LandingPage() {
               size="lg"
               className="bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-[rgb(238,133,125)]/25 transition-all hover:shadow-xl hover:shadow-[rgb(238,133,125)]/30 hover:scale-105"
             >
-              <Link href="/projects">Start Creating</Link>
+              <Link href="/invite">Start Creating</Link>
             </Button>
           </div>
         </div>
@@ -94,15 +94,15 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Image
               src="/celea-logo.png"
               alt="Celea"
-              width={32}
-              height={32}
+              width={48}
+              height={48}
               className="rounded-lg"
             />
-            <span className="text-white/60 text-sm">
+            <span className="text-white/60 text-base">
               © 2025 Celea. Self-iterating AI for Hollywood.
             </span>
           </div>

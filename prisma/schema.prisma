@@ -63,3 +63,17 @@ model ReferenceImage {
 
   @@index([jobId])
 }
+
+model Waitlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  source    String   @default("invite_page") // Where they signed up from
+  status    String   @default("pending") // pending, invited, rejected
+  notes     String?  // Admin notes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}

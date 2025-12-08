@@ -31,23 +31,16 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center">
             <Image
               src="/celea-logo.png"
               alt="Celea"
-              width={48}
-              height={48}
+              width={56}
+              height={56}
               className="rounded-xl"
             />
-            <span className="text-2xl font-semibold tracking-tight">Celea</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link
-              href="/projects"
-              className="text-sm text-white/60 hover:text-white transition-colors"
-            >
-              Projects
-            </Link>
             <Button
               asChild
               className="bg-[rgb(238,133,125)] hover:bg-[rgb(228,113,105)] text-white border-0"
@@ -65,20 +58,24 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
             <span className="w-2 h-2 rounded-full bg-[rgb(238,133,125)] animate-pulse" />
             <span className="text-sm text-white/70">
-              AI-Native Automation for Hollywood
+              Inserts, Establishing shots, and Background Asset Builders for Hollywood
             </span>
           </div>
 
-          {/* Main Headline */}
-          <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
-            <span className="bg-gradient-to-r from-[rgb(238,133,125)] via-[rgb(193,202,241)] to-[rgb(124,199,212)] bg-clip-text text-transparent">
-              Celea
-            </span>
-          </h1>
+          {/* Main Logo */}
+          <div className="mb-6 flex justify-center">
+            <Image
+              src="/celea-logo.png"
+              alt="Celea"
+              width={200}
+              height={200}
+              className="rounded-2xl"
+            />
+          </div>
 
           {/* Tagline */}
           <p className="text-xl md:text-2xl text-white/70 mb-12">
-            Celea, self-iterating AI for final takes in Hollywood
+            Celea self-iterates AI videos with customizable visual nodes for Hollywood
           </p>
 
           {/* CTA Buttons */}

@@ -27,6 +27,11 @@ export const metadata: Metadata = {
     "cinematic AI",
   ],
   authors: [{ name: "Celea" }],
+  icons: {
+    icon: "/celea-logo.png",
+    shortcut: "/celea-logo.png",
+    apple: "/celea-logo.png",
+  },
   openGraph: {
     title: "Celea | AI-Native Video Automation for Hollywood",
     description:

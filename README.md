@@ -48,7 +48,7 @@ Celea is an AI-powered video generation platform that automates the video refine
 
 1. Clone the repository:
 \`\`\`bash
-git clone https://github.com/YOUR_USERNAME/celea.git
+git clone https://github.com/Aryan-333/celea.git
 cd celea
 \`\`\`
 
@@ -194,5 +194,3 @@ celea/
 MIT
 
 ---
-
-Built with ❤️ by Celea
